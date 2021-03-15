@@ -198,6 +198,21 @@ contract Keep3rV1OracleMetrics {
     return sqrt(sigSqrd(tokenIn, tokenOut, points, window));
   }
 
-  // TODO: mle rolling views that return memory [] uint for multiple windows
+  /**
+   * @dev rolling mu. returns array for last r windows
+   * TODO: Fix problem below where sample() is for last n points given a window value
+   */
+  function rMu(address tokenIn, address tokenOut, uint points, uint window, uint8 r) (uint[] memory) {
+    uint[] memory _mus = new uint[](r);
+    return _mus;
+  }
 
+  /**
+   * @dev rolling sig. returns array for last r windows
+   * TODO: Fix problem below where sample() is for last n points given a window value
+   */
+  function rSig(address tokenIn, address tokenOut, uint points, uint window, uint8 r) (uint[] memory) {
+    uint[] memory _sigs = new uint[](r);
+    return _sigs;
+  }
 }
