@@ -146,21 +146,46 @@ contract Keep3rV1OracleMetrics {
       return res;
   }
 
+  function sqrt(uint x) public pure returns (uint y) {
+      uint z = (x + 1) / 2;
+      y = x;
+      while (z < y) {
+          y = z;
+          z = (x / z + z) / 2;
+      }
+  }
+
+
+  // TODO: Take ln() like vol() in Keep3rV1Volatility and need to factor
+  // in T into mu, sigSqrd ... so using m = mu * T and
+  // a factor of 1 / T in front for mu and sigSqrd ..
+
+  // TODO: mle rolling views that return memory [] uint for multiple windows
+
 
   /**
    * @dev computes mle for mu. Assumes underlying price follows
    * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
    */
   function mu(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint) {
-      //return vol(KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window));
+    // return vol(KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window));
   }
 
   /**
    * @dev computes mle for sigma**2. Assumes underlying price follows
    * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
    */
-  function sigSqrd(address tokenIn, address tokenOut, uint points, uint window) external view returns (uint) {
-      //return vol(KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window));
+  function sigSqrd(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint) {
+    uint m = mu(tokenIn, tokenOut, points, window);
+    // return vol(KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window));
+  }
+
+  /**
+   * @dev computes mle for sigma. Assumes underlying price follows
+   * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
+   */
+  function sig(address tokenIn, address tokenOut, uint points, uint window) external view returns (uint) {
+    return sqrt(siqSqrd(tokenIn, tokenOut, points, window));
   }
 
 }
