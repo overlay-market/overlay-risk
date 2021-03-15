@@ -22,6 +22,8 @@ contract Keep3rV1OracleMetrics {
   uint private constant LOG_E_2 = 6931471806;
   uint private constant BASE = 1e10;
 
+  uint public constant periodSize = 1800;
+
   IKeep3rV1Oracle public constant KV1O = IKeep3rV1Oracle(0xf67Ab1c914deE06Ba0F264031885Ea7B276a7cDa); // SushiswapV1Oracle
 
   function floorLog2(uint256 _n) public pure returns (uint8) {
@@ -155,37 +157,47 @@ contract Keep3rV1OracleMetrics {
       }
   }
 
-
-  // TODO: Take ln() like vol() in Keep3rV1Volatility and need to factor
-  // in T into mu, sigSqrd ... so using m = mu * T and
-  // a factor of 1 / T in front for mu and sigSqrd ..
-
-  // TODO: mle rolling views that return memory [] uint for multiple windows
-
-
   /**
    * @dev computes mle for mu. Assumes underlying price follows
    * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
+   * R_i = ln(P_i / P_{i-1}) ~ N(mu * T, sig**2 * T), where T is periodSize
    */
-  function mu(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint) {
-    // return vol(KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window));
+  function mu(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint m) {
+    uint t = window * periodSize;
+    uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window);
+    for (uint8 i = 1; i <= (p.length - 1); i++) {
+      m += (ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1));
+    }
+    m = m / (p.length - 1); // divide again by period size and fix and uint() issues
+    return m / t;
   }
 
   /**
    * @dev computes mle for sigma**2. Assumes underlying price follows
    * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
+   * R_i = ln(P_i / P_{i-1}) ~ N(mu * T, sig**2 * T), where T is periodSize
    */
-  function sigSqrd(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint) {
+  function sigSqrd(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint ss) {
+    uint t = window * periodSize;
+    uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window);
     uint m = mu(tokenIn, tokenOut, points, window);
-    // return vol(KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window));
+    m = m * t;
+    for (uint8 i = 1; i <= (p.length - 1); i++) {
+      ss += ((ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1)) - m)**2; // FIXED_1 needed?
+    }
+    ss = ss / (p.length - 1);
+    return ss / t;
   }
 
   /**
    * @dev computes mle for sigma. Assumes underlying price follows
    * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
+   * R_i = ln(P_i / P_{i-1}) ~ N(mu * T, sig**2 * T), where T is periodSize
    */
   function sig(address tokenIn, address tokenOut, uint points, uint window) external view returns (uint) {
-    return sqrt(siqSqrd(tokenIn, tokenOut, points, window));
+    return sqrt(sigSqrd(tokenIn, tokenOut, points, window));
   }
+
+  // TODO: mle rolling views that return memory [] uint for multiple windows
 
 }

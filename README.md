@@ -16,6 +16,6 @@ where `W(j*T)` is a [Wiener process](https://en.wikipedia.org/wiki/Wiener_proces
 
 ## Why?
 
-We need some way to assess the risk to the system. A good approach is to model the underlying feed value as being driven by a stochastic process, which allows us to estimate expected values to be paid out by the protocol for an imbalance in positions on a market in addition to the "VaR" for passive OVL holders, who act as the counterparty to all unbalanced trades.
+We need some way to assess the [risk to the system](https://github.com/overlay-market/OIPs/blob/master/notes/note-4.md). A good approach is to model the underlying feed value as being driven by a stochastic process, which allows us to estimate expected values to be paid out by the protocol for an imbalance in positions on a market in addition to the "VaR" for passive OVL holders, who act as the counterparty to all unbalanced trades.
 
 Calculation of our per-market risk metrics requires estimating distributional parameters for the underlying stochastic model. This repo aims to provide easy to access views on-chain for those parameters (i.e. maximum likelihood estimates for `mu` and `sig` above).
