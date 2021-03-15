@@ -5,13 +5,13 @@ Simple on-chain risk metrics to inform our choices for per-market funding consta
 
 ## Assumptions
 
-We sample data from on-chain oracles and assume the underlying feed exhibits Geometric Brownian motion of the form
+We sample data from on-chain oracles and assume the underlying feed exhibits [Geometric Brownian motion](https://en.wikipedia.org/wiki/Geometric_Brownian_motion) of the form
 
 ```
 P_j = P_0 * e**(mu * j * T + sig * W(j*T))
 ```
 
-where `W(j*T)` is a Wiener process, `j` is an `int` for the number of update intervals that occur after the initial feed value of `P_0`, and `T` is the update interval of the respective feed (e.g. sliding window oracles currently maintained by [Keep3r Network](https://github.com/keep3r-network/keep3r.network) have `T = periodSize = 30 min`).
+where `W(j*T)` is a [Wiener process](https://en.wikipedia.org/wiki/Wiener_process), `j` is an `int` for the number of update intervals that occur after the initial feed value of `P_0`, and `T` is the update interval of the respective feed (e.g. sliding window oracles currently maintained by [Keep3r Network](https://github.com/keep3r-network/keep3r.network) have `T = periodSize = 30 min`).
 
 
 ## Why?
