@@ -157,6 +157,21 @@ contract Keep3rV1OracleMetrics {
       }
   }
 
+  function logMean(uint[] memory p) public pure returns (uint m) {
+    for (uint8 i = 1; i <= (p.length - 1); i++) {
+      m += (ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1));
+    }
+    return m / (p.length - 1);
+  }
+
+  function logVariance(uint[] memory p) public pure returns (uint v) {
+    uint m = logMean(p);
+    for (uint8 i = 1; i <= (p.length - 1); i++) {
+      v += ((ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1)) - m)**2; // FIXED_1 needed?
+    }
+    return v / (p.length - 1);
+  }
+
   /**
    * @dev computes mle for mu. Assumes underlying price follows
    * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
@@ -165,10 +180,7 @@ contract Keep3rV1OracleMetrics {
   function mu(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint m) {
     uint t = window * periodSize;
     uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window);
-    for (uint8 i = 1; i <= (p.length - 1); i++) {
-      m += (ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1));
-    }
-    m = m / (p.length - 1); // divide again by period size and fix and uint() issues
+    m = logMean(p);
     return m / t;
   }
 
@@ -180,12 +192,7 @@ contract Keep3rV1OracleMetrics {
   function sigSqrd(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint ss) {
     uint t = window * periodSize;
     uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window);
-    uint m = mu(tokenIn, tokenOut, points, window);
-    m = m * t;
-    for (uint8 i = 1; i <= (p.length - 1); i++) {
-      ss += ((ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1)) - m)**2; // FIXED_1 needed?
-    }
-    ss = ss / (p.length - 1);
+    ss = logVariance(p);
     return ss / t;
   }
 
@@ -202,7 +209,7 @@ contract Keep3rV1OracleMetrics {
    * @dev rolling mu. returns array for last r windows
    * TODO: Fix problem below where sample() is for last n points given a window value
    */
-  function rMu(address tokenIn, address tokenOut, uint points, uint window, uint8 r) (uint[] memory) {
+  function rMu(address tokenIn, address tokenOut, uint points, uint window, uint8 r) external view returns (uint[] memory) {
     uint[] memory _mus = new uint[](r);
     return _mus;
   }
@@ -211,7 +218,7 @@ contract Keep3rV1OracleMetrics {
    * @dev rolling sig. returns array for last r windows
    * TODO: Fix problem below where sample() is for last n points given a window value
    */
-  function rSig(address tokenIn, address tokenOut, uint points, uint window, uint8 r) (uint[] memory) {
+  function rSig(address tokenIn, address tokenOut, uint points, uint window, uint8 r) external view returns (uint[] memory) {
     uint[] memory _sigs = new uint[](r);
     return _sigs;
   }
