@@ -157,21 +157,6 @@ contract Keep3rV1OracleMetrics {
       }
   }
 
-  function logMean(uint[] memory p) public pure returns (uint m) {
-    for (uint8 i = 1; i <= (p.length - 1); i++) {
-      m += (ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1));
-    }
-    return m / (p.length - 1);
-  }
-
-  function logVariance(uint[] memory p) public pure returns (uint v) {
-    uint m = logMean(p);
-    for (uint8 i = 1; i <= (p.length - 1); i++) {
-      v += ((ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1)) - m)**2; // FIXED_1 needed?
-    }
-    return v / (p.length - 1);
-  }
-
   /**
    * @dev computes mle for mu. Assumes underlying price follows
    * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
@@ -180,8 +165,10 @@ contract Keep3rV1OracleMetrics {
   function mu(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint m) {
     uint t = window * periodSize;
     uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window);
-    m = logMean(p);
-    return m / t;
+    for (uint8 i = 1; i <= (p.length - 1); i++) {
+      m += (ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1));
+    }
+    return m / (t * (p.length - 1));
   }
 
   /**
@@ -192,8 +179,13 @@ contract Keep3rV1OracleMetrics {
   function sigSqrd(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint ss) {
     uint t = window * periodSize;
     uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window);
-    ss = logVariance(p);
-    return ss / t;
+
+    uint m = mu(tokenIn, tokenOut, points, window);
+    m = m * t;
+    for (uint8 i = 1; i <= (p.length - 1); i++) {
+      ss += ((ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1)) - m)**2; // FIXED_1 needed?
+    }
+    return ss / (t * (p.length - 1));
   }
 
   /**
@@ -207,19 +199,53 @@ contract Keep3rV1OracleMetrics {
 
   /**
    * @dev rolling mu. returns array for last r windows
-   * TODO: Fix problem below where sample() is for last n points given a window value
    */
-  function rMu(address tokenIn, address tokenOut, uint points, uint window, uint8 r) external view returns (uint[] memory) {
+  function rMu(address tokenIn, address tokenOut, uint points, uint window, uint8 r) public view returns (uint[] memory) {
+    uint t = window * periodSize;
     uint[] memory _mus = new uint[](r);
+
+    // need to hit sample() for points = r * points with window = window to get extra number of points
+    // then for i = 1, ..., r; assemble the _mus
+    uint allPoints = points * uint(r);
+    uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, allPoints, window);
+
+    uint m = 0;
+    uint index = 0;
+    for (uint8 i = 1; i <= (p.length - 1); i++) {
+      m += (ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1));
+      if (i % (points * window) == 0) {
+        _mus[index] = (m / (t * (p.length - 1)));
+        m = 0;
+        index += 1;
+      }
+    }
     return _mus;
   }
 
   /**
    * @dev rolling sig. returns array for last r windows
-   * TODO: Fix problem below where sample() is for last n points given a window value
    */
-  function rSig(address tokenIn, address tokenOut, uint points, uint window, uint8 r) external view returns (uint[] memory) {
+  function rSigSqrd(address tokenIn, address tokenOut, uint points, uint window, uint8 r) external view returns (uint[] memory) {
+    uint t = window * periodSize;
+    uint[] memory _mus = rMu(tokenIn, tokenOut, points, window, r);
     uint[] memory _sigs = new uint[](r);
+
+    // need to hit sample() for points = r * points with window = window to get extra number of points
+    // then for i = 1, ..., r; assemble the _sigs
+    uint allPoints = points * uint(r);
+    uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, allPoints, window);
+
+    uint ss = 0;
+    uint index = 0;
+    for (uint8 i = 1; i <= (p.length - 1); i++) {
+      ss += ((ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1)) - _mus[index]*t)**2;
+      if (i % (points * window) == 0) {
+        _sigs[index] = (ss / (t * (p.length - 1)));
+        ss = 0;
+        index += 1;
+      }
+    }
+
     return _sigs;
   }
 }
