@@ -158,9 +158,8 @@ contract Keep3rV1OracleMetrics {
   }
 
   /**
-   * @dev computes mle for mu. Assumes underlying price follows
-   * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
-   * R_i = ln(P_i / P_{i-1}) ~ N(mu * T, sig**2 * T), where T is periodSize
+   * @notice computes mle for mu in assumed GBM price path
+   * @dev Non-standard form of P_t = P_0 * e^{mu * t + sigma * W_t}
    */
   function mu(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint m) {
     uint t = window * periodSize;
@@ -172,9 +171,8 @@ contract Keep3rV1OracleMetrics {
   }
 
   /**
-   * @dev computes mle for sigma**2. Assumes underlying price follows
-   * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
-   * R_i = ln(P_i / P_{i-1}) ~ N(mu * T, sig**2 * T), where T is periodSize
+   * @notice computes mle for sigma**2 in assumed GBM price path
+   * @dev Non-standard form of P_t = P_0 * e^{mu * t + sigma * W_t}
    */
   function sigSqrd(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint ss) {
     uint t = window * periodSize;
@@ -189,16 +187,15 @@ contract Keep3rV1OracleMetrics {
   }
 
   /**
-   * @dev computes mle for sigma. Assumes underlying price follows
-   * geometric brownian motion: P_t = P_0 * e^{mu * t + sigma * W_t}
-   * R_i = ln(P_i / P_{i-1}) ~ N(mu * T, sig**2 * T), where T is periodSize
+   * @notice computes mle for sigma in assumed GBM price path
+   * @dev Non-standard form of P_t = P_0 * e^{mu * t + sigma * W_t}
    */
   function sig(address tokenIn, address tokenOut, uint points, uint window) external view returns (uint) {
     return sqrt(sigSqrd(tokenIn, tokenOut, points, window));
   }
 
   /**
-   * @dev rolling mu. returns array for last r windows
+   * @notice rolling mu for last r windows
    */
   function rMu(address tokenIn, address tokenOut, uint points, uint window, uint8 r) public view returns (uint[] memory) {
     uint t = window * periodSize;
@@ -223,7 +220,7 @@ contract Keep3rV1OracleMetrics {
   }
 
   /**
-   * @dev rolling sig. returns array for last r windows
+   * @notice rolling sig for last r windows
    */
   function rSigSqrd(address tokenIn, address tokenOut, uint points, uint window, uint8 r) external view returns (uint[] memory) {
     uint t = window * periodSize;
