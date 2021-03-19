@@ -52,7 +52,8 @@ def calc_vars(mu: float,
               sigma_sqrd: float,
               n: int, t: int, alphas: np.ndarray) -> np.ndarray:
     sigma = np.sqrt(sigma_sqrd)
-    pow = mu*n*t + sigma*np.sqrt(n*t)*norm.ppf(alphas)
+    q = 1-alphas
+    pow = mu*n*t + sigma*np.sqrt(n*t)*norm.ppf(q)
     return np.exp(pow) - 1
 
 
