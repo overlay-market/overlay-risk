@@ -1,8 +1,10 @@
-from brownie import network, Contract
 import pandas as pd
 import numpy as np
 import os
-import tp
+import typing as tp
+
+from brownie import network, Contract
+from scipy.stats import norm
 
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
@@ -39,7 +41,7 @@ def quotes() -> tp.List:
             "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
             "token_out": "0xdac17f958d2ee523a2206206994597c13d831ec7",  # USDT
             "amount_in": 1e18,
-            "points": 48*7,  # 7 days
+            "points": 48*30,  # 30 days
             "window": 2,  # 1 h rolling
         }
     ]
@@ -50,7 +52,7 @@ def calc_vars(mu: float,
               sigma_sqrd: float,
               n: int, t: int, alphas: np.ndarray) -> np.ndarray:
     sigma = np.sqrt(sigma_sqrd)
-    pow = mu*n*t + sigma*np.sqrt(n*t)*alphas
+    pow = mu*n*t + sigma*np.sqrt(n*t)*norm.ppf(alphas)
     return np.exp(pow) - 1
 
 
