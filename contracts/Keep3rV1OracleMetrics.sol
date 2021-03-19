@@ -162,6 +162,7 @@ contract Keep3rV1OracleMetrics {
    * @dev Non-standard form of P_t = P_0 * e^{mu * t + sigma * W_t}
    */
   function mu(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint m) {
+    // TODO: Fix for signed int output
     uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window);
     for (uint8 i = 1; i <= (p.length - 1); i++) {
       m += (ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1));
@@ -174,6 +175,7 @@ contract Keep3rV1OracleMetrics {
    * @dev Non-standard form of P_t = P_0 * e^{mu * t + sigma * W_t}
    */
   function sigSqrd(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint ss) {
+    // TODO: Fix for signed int output
     uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window);
 
     uint m = mu(tokenIn, tokenOut, points, window);

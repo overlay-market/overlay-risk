@@ -15,20 +15,20 @@ def metrics(deployer):
 
 
 @pytest.fixture
-def kv10(metrics):
+def kv1o(metrics):
     yield Contract.from_explorer(metrics.KV1O())
 
 
 @pytest.mark.require_network("mainnet-fork")
-def test_mu(metrics, kv10):
-    samples = kv10.sample(
+def test_mu(metrics, kv1o):
+    samples = kv1o.sample(
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
         1e18,
         "0xdac17f958d2ee523a2206206994597c13d831ec7",  # USDT
         96,  # 2 days
         2,  # 1 h rolling
     )
-    t = kv10.periodSize()
+    t = kv1o.periodSize()
 
     mu = metrics.mu(
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
@@ -44,15 +44,15 @@ def test_mu(metrics, kv10):
 
 
 @pytest.mark.require_network("mainnet-fork")
-def test_sigma_sqrd(metrics, kv10):
-    samples = kv10.sample(
+def test_sigma_sqrd(metrics, kv1o):
+    samples = kv1o.sample(
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
         1e18,
         "0xdac17f958d2ee523a2206206994597c13d831ec7",  # USDT
         96,  # 2 days
         2,  # 1 h rolling
     )
-    t = kv10.periodSize()
+    t = kv1o.periodSize()
 
     ss = metrics.sigSqrd(
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
