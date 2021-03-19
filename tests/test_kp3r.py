@@ -28,6 +28,7 @@ def test_mu(metrics, kv10):
         96,  # 2 days
         2,  # 1 h rolling
     )
+    t = kv10.periodSize()
 
     mu = metrics.mu(
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
@@ -37,9 +38,9 @@ def test_mu(metrics, kv10):
     )
 
     # Compare log mean calc from sample with mu
-    assert mu == float(np.mean([
+    assert mu == (float(np.mean([
         np.log(samples[i]/samples[i-1]) for i in range(1, 96, 1)
-    ]))
+    ]) / t))
 
 
 @pytest.mark.require_network("mainnet-fork")
@@ -51,6 +52,7 @@ def test_sigma_sqrd(metrics, kv10):
         96,  # 2 days
         2,  # 1 h rolling
     )
+    t = kv10.periodSize()
 
     ss = metrics.sigSqrd(
         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
@@ -59,7 +61,7 @@ def test_sigma_sqrd(metrics, kv10):
         2,
     )
 
-    # Compare log mean calc from sample with mu
-    assert ss == float(np.var([
+    # Compare log var calc from sample with sigma squared
+    assert ss == (float(np.var([
         np.log(samples[i]/samples[i-1]) for i in range(1, 96, 1)
-    ]))
+    ]) / t))

@@ -162,12 +162,11 @@ contract Keep3rV1OracleMetrics {
    * @dev Non-standard form of P_t = P_0 * e^{mu * t + sigma * W_t}
    */
   function mu(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint m) {
-    uint t = window * periodSize;
     uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window);
     for (uint8 i = 1; i <= (p.length - 1); i++) {
       m += (ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1));
     }
-    return m / (t * (p.length - 1));
+    return m / (periodSize * (p.length - 1));
   }
 
   /**
@@ -175,15 +174,14 @@ contract Keep3rV1OracleMetrics {
    * @dev Non-standard form of P_t = P_0 * e^{mu * t + sigma * W_t}
    */
   function sigSqrd(address tokenIn, address tokenOut, uint points, uint window) public view returns (uint ss) {
-    uint t = window * periodSize;
     uint[] memory p = KV1O.sample(tokenIn, uint(10)**IERC20(tokenIn).decimals(), tokenOut, points, window);
 
     uint m = mu(tokenIn, tokenOut, points, window);
-    m = m * t;
+    m = m * periodSize;
     for (uint8 i = 1; i <= (p.length - 1); i++) {
       ss += ((ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1)) - m)**2; // FIXED_1 needed?
     }
-    return ss / (t * (p.length - 1));
+    return ss / (periodSize * (p.length - 1));
   }
 
   /**
@@ -198,7 +196,6 @@ contract Keep3rV1OracleMetrics {
    * @notice rolling mu for last r windows
    */
   function rMu(address tokenIn, address tokenOut, uint points, uint window, uint8 r) public view returns (uint[] memory) {
-    uint t = window * periodSize;
     uint[] memory _mus = new uint[](r);
 
     // need to hit sample() for points = r * points with window = window to get extra number of points
@@ -211,7 +208,7 @@ contract Keep3rV1OracleMetrics {
     for (uint8 i = 1; i <= (p.length - 1); i++) {
       m += (ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1));
       if (i % (points * window) == 0) {
-        _mus[index] = (m / (t * (p.length - 1)));
+        _mus[index] = (m / (periodSize * (p.length - 1)));
         m = 0;
         index += 1;
       }
@@ -223,7 +220,6 @@ contract Keep3rV1OracleMetrics {
    * @notice rolling sig for last r windows
    */
   function rSigSqrd(address tokenIn, address tokenOut, uint points, uint window, uint8 r) external view returns (uint[] memory) {
-    uint t = window * periodSize;
     uint[] memory _mus = rMu(tokenIn, tokenOut, points, window, r);
     uint[] memory _sigs = new uint[](r);
 
@@ -235,9 +231,9 @@ contract Keep3rV1OracleMetrics {
     uint ss = 0;
     uint index = 0;
     for (uint8 i = 1; i <= (p.length - 1); i++) {
-      ss += ((ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1)) - _mus[index]*t)**2;
+      ss += ((ln(p[i] * FIXED_1) - ln(p[i-1] * FIXED_1)) - _mus[index]*periodSize)**2;
       if (i % (points * window) == 0) {
-        _sigs[index] = (ss / (t * (p.length - 1)));
+        _sigs[index] = (ss / (periodSize * (p.length - 1)));
         ss = 0;
         index += 1;
       }
