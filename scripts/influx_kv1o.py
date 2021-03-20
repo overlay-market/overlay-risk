@@ -37,13 +37,70 @@ def KV1O() -> str:
 def quotes() -> tp.List:
     return [
         {
-            "id": "SushiswapV1Oracle: USDT-WETH",
+            "id": "SushiswapV1Oracle: WBTC-WETH",
             "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
-            "token_out": "0xdac17f958d2ee523a2206206994597c13d831ec7",  # USDT
+            "token_out": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",  # WBTC
             "amount_in": 1e18,
             "points": 24*30,  # 30 days
-            "window": 2,  # 30min window
+            "window": 2,  # 1 h window
+        },
+        {
+            "id": "SushiswapV1Oracle: USDC-WETH",
+            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
+            "token_out": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC
+            "amount_in": 1e18,
+            "points": 24*30,  # 30 days
+            "window": 2,  # 1 h window
+        },
+        {
+            "id": "SushiswapV1Oracle: AAVE-WETH",
+            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
+            "token_out": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",  # AAVE
+            "amount_in": 1e18,
+            "points": 24*30,  # 30 days
+            "window": 2,  # 1 h window
+        },
+        {
+            "id": "SushiswapV1Oracle: SUSHI-WETH",
+            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
+            "token_out": "0x6b3595068778dd592e39a122f4f5a5cf09c90fe2",  # SUSHI
+            "amount_in": 1e18,
+            "points": 24*30,  # 30 days
+            "window": 2,  # 1 h window
+        },
+        {
+            "id": "SushiswapV1Oracle: SNX-WETH",
+            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
+            "token_out": "0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f",  # SNX
+            "amount_in": 1e18,
+            "points": 24*30,  # 30 days
+            "window": 2,  # 1 h window
+        },
+        {
+            "id": "SushiswapV1Oracle: YFI-WETH",
+            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
+            "token_out": "0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e",  # YFI
+            "amount_in": 1e18,
+            "points": 24*30,  # 30 days
+            "window": 2,  # 1 h window
+        },
+        {
+            "id": "SushiswapV1Oracle: COMP-WETH",
+            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
+            "token_out": "0xc00e94cb662c3520282e6f5717214004a7f26888",  # COMP
+            "amount_in": 1e18,
+            "points": 24*30,  # 30 days
+            "window": 2,  # 1 h window
+        },
+        {
+            "id": "SushiswapV1Oracle: UNI-WETH",
+            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
+            "token_out": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",  # UNI
+            "amount_in": 1e18,
+            "points": 24*30,  # 30 days
+            "window": 2,  # 1 h window
         }
+        # TODO: OVL-WETH ...
     ]
 
 
@@ -94,14 +151,21 @@ def get_stats(kv1o, q) -> (str, pd.DataFrame):
 def main():
     print(f"You are using the '{network.show_active()}' network")
     config = get_config()
+    kv1o = KV1O()
     client = create_client(config)
     write_api = client.write_api(
         write_options=SYNCHRONOUS,
         point_settings=get_point_settings(),
     )
 
+    # TODO: Populate with historical stats as long as observations.length
+    # prior to the cron update over the past month
+
     for q in quotes():
-        _, stats = get_stats(KV1O(), q)
+        _, stats = get_stats(kv1o, q)
+        print('id', q['id'])
+        print('stats', stats)
+        print('timestamp', float(stats['timestamp']))
         write_api.write(bucket=config['bucket'],
                         org=config['org'],
                         record=stats,
