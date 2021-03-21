@@ -34,71 +34,79 @@ def KV1O() -> str:
     return Contract.from_explorer("0xf67Ab1c914deE06Ba0F264031885Ea7B276a7cDa")
 
 
-def quotes() -> tp.List:
+def get_params() -> tp.Dict:
+    return {
+        "points": 24*30,  # 3 mo of data behind to estimate mles
+        "window": 2,  # 1h TWAPs
+        "n": 24*7,  # n days forward to calculate VaR * a^n
+    }
+
+
+def quotes(params: tp.Dict) -> tp.List:
     return [
         {
             "id": "SushiswapV1Oracle: WBTC-WETH",
             "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
             "token_out": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",  # WBTC
             "amount_in": 1e18,
-            "points": 24*30,  # 30 days
-            "window": 2,  # 1 h window
+            "points": params["points"],
+            "window": params["window"],
         },
         {
             "id": "SushiswapV1Oracle: USDC-WETH",
             "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
             "token_out": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC
             "amount_in": 1e18,
-            "points": 24*30,  # 30 days
-            "window": 2,  # 1 h window
+            "points": params["points"],
+            "window": params["window"],
         },
         {
             "id": "SushiswapV1Oracle: AAVE-WETH",
             "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
             "token_out": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",  # AAVE
             "amount_in": 1e18,
-            "points": 24*30,  # 30 days
-            "window": 2,  # 1 h window
+            "points": params["points"],
+            "window": params["window"],
         },
         {
             "id": "SushiswapV1Oracle: SUSHI-WETH",
             "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
             "token_out": "0x6b3595068778dd592e39a122f4f5a5cf09c90fe2",  # SUSHI
             "amount_in": 1e18,
-            "points": 24*30,  # 30 days
-            "window": 2,  # 1 h window
+            "points": params["points"],
+            "window": params["window"],
         },
         {
             "id": "SushiswapV1Oracle: SNX-WETH",
             "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
             "token_out": "0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f",  # SNX
             "amount_in": 1e18,
-            "points": 24*30,  # 30 days
-            "window": 2,  # 1 h window
+            "points": params["points"],
+            "window": params["window"],
         },
         {
             "id": "SushiswapV1Oracle: YFI-WETH",
             "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
             "token_out": "0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e",  # YFI
             "amount_in": 1e18,
-            "points": 24*30,  # 30 days
-            "window": 2,  # 1 h window
+            "points": params["points"],
+            "window": params["window"],
         },
         {
             "id": "SushiswapV1Oracle: COMP-WETH",
             "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
             "token_out": "0xc00e94cb662c3520282e6f5717214004a7f26888",  # COMP
             "amount_in": 1e18,
-            "points": 24*30,  # 30 days
-            "window": 2,  # 1 h window
+            "points": params["points"],
+            "window": params["window"],
         },
         {
             "id": "SushiswapV1Oracle: UNI-WETH",
             "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
             "token_out": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",  # UNI
             "amount_in": 1e18,
-            "points": 24*30,  # 30 days
-            "window": 2,  # 1 h window
+            "points": params["points"],
+            "window": params["window"],
         }
         # TODO: OVL-WETH ...
     ]
@@ -115,7 +123,7 @@ def calc_vars(mu: float,
     return np.exp(pow) - 1
 
 
-def get_stats(kv1o, q) -> (str, pd.DataFrame):
+def get_stats(kv1o, q: tp.Dict, p: tp.Dict) -> (str, pd.DataFrame):
     t = kv1o.periodSize() * q["window"]  # 30m * 2 = 1h
     pair = kv1o.pairFor(q["token_in"], q["token_out"])
     sample = kv1o.sample(
@@ -134,16 +142,16 @@ def get_stats(kv1o, q) -> (str, pd.DataFrame):
     mu = float(np.mean(rs) / t)
     ss = float(np.var(rs) / t)
 
-    # VaRs for 5%, 1%, 0.1%, 0.01% alphas, 1 day into the future
-    n = 24  # 24 hrs = 1 day
+    # VaRs for 5%, 1%, 0.1%, 0.01% alphas, n periods into the future
+    n = p["n"]
     alphas = np.array([0.05, 0.01, 0.001, 0.0001])
     vars = calc_vars(mu, ss, n, t, alphas)
     data = np.concatenate(([timestamp, mu, ss], vars), axis=None)
 
     df = pd.DataFrame(data=data).T
     df.columns = ['timestamp', 'mu', 'sigSqrd', 'VaR 5% * a^n',
-                  'Var 1% * a^n', 'Var 0.1% * a^n',
-                  'Var 0.01% * a^n']
+                  'VaR 1% * a^n', 'VaR 0.1% * a^n',
+                  'VaR 0.01% * a^n']
 
     return pair, df
 
@@ -151,6 +159,7 @@ def get_stats(kv1o, q) -> (str, pd.DataFrame):
 def main():
     print(f"You are using the '{network.show_active()}' network")
     config = get_config()
+    params = get_params()
     kv1o = KV1O()
     client = create_client(config)
     write_api = client.write_api(
@@ -161,8 +170,8 @@ def main():
     # TODO: Populate with historical stats as long as observations.length
     # prior to the cron update over the past month
 
-    for q in quotes():
-        _, stats = get_stats(kv1o, q)
+    for q in quotes(params):
+        _, stats = get_stats(kv1o, q, params)
         print('id', q['id'])
         print('stats', stats)
         print('timestamp', float(stats['timestamp']))
