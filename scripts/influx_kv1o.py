@@ -4,9 +4,10 @@ import os
 import typing as tp
 
 from brownie import network, Contract
+from datetime import datetime
 from scipy.stats import norm
 
-from influxdb_client import InfluxDBClient
+from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
 
 
@@ -20,12 +21,12 @@ def get_config() -> tp.Dict:
 
 
 def create_client(config: tp.Dict) -> InfluxDBClient:
-    return InfluxDBClient(url=config['url'], token=config['token'])
+    return InfluxDBClient(url=config['url'], token=config['token'], debug=False)
 
 
 def get_point_settings() -> PointSettings:
     point_settings = PointSettings(**{"type": "metrics-hourly"})
-    # point_settings.add_default_tag("example-name", "ingest-data-frame")
+    point_settings.add_default_tag("influx-kv1o", "ingest-data-frame")
     return point_settings
 
 
@@ -36,7 +37,7 @@ def KV1O() -> str:
 
 def get_params() -> tp.Dict:
     return {
-        "points": 24*30,  # 3 mo of data behind to estimate mles
+        "points": 24*30,  # 1 mo of data behind to estimate mles
         "window": 2,  # 1h TWAPs
         "n": 24*7,  # n days forward to calculate VaR * a^n
     }
@@ -131,8 +132,10 @@ def get_stats(kv1o, q: tp.Dict, p: tp.Dict) -> (str, pd.DataFrame):
         q["amount_in"],
         q["token_out"],
         q["points"],
-        q["window"],
+        q["window"]
     )
+
+    # TODO: Add in q-q plot to see deviation from GBM given sample
 
     # timestamp: so don't add duplicates
     timestamp, _, _ = kv1o.lastObservation(pair)
@@ -174,10 +177,22 @@ def main():
         _, stats = get_stats(kv1o, q, params)
         print('id', q['id'])
         print('stats', stats)
-        print('timestamp', float(stats['timestamp']))
-        write_api.write(bucket=config['bucket'],
-                        org=config['org'],
-                        record=stats,
-                        data_frame_measurement_name=q['id'])
+        stats.to_csv(
+            f"csv/{q['id']}-{int(datetime.now().timestamp())}.csv",
+            index=False,
+        )
+        point = Point("mem")\
+            .tag("id", q['id'])\
+            .time(
+                datetime.fromtimestamp(float(stats['timestamp'])),
+                WritePrecision.NS
+            )
+
+        for col in stats.columns:
+            if col != 'timestamp':
+                point = point.field(col, float(stats[col]))
+
+        print(f"Writing {q['id']} to api ...")
+        write_api.write(config['bucket'], config['org'], point)
 
     client.close()
