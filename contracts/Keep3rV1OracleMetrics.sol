@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.12;
 
-// Modified from https://github.com/keep3r-network/keep3r.network/blob/master/contracts/Keep3rV1Volatility.sol
+// Copied and modified from keep3r network code:
+// https://github.com/keep3r-network/keep3r.network/blob/master/contracts/Keep3rV1Volatility.sol
 // Subject to the MIT license
 
 interface IKeep3rV1Oracle {

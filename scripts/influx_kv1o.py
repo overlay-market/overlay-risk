@@ -31,7 +31,7 @@ def get_point_settings() -> PointSettings:
     return point_settings
 
 
-def KV1O() -> str:
+def KV1O() -> Contract:
     # SushiswapV1Oracle
     return Contract.from_explorer("0xf67Ab1c914deE06Ba0F264031885Ea7B276a7cDa")
 
@@ -46,7 +46,7 @@ def get_params() -> tp.Dict:
 
 def get_quote_path() -> str:
     base = os.path.dirname(os.path.abspath(__file__))
-    qp = 'constants/quotes.json'
+    qp = 'constants/quotes_kv1o.json'
     return os.path.join(base, qp)
 
 
@@ -124,25 +124,28 @@ def main():
     )
 
     for q in quotes:
-        _, stats = get_stats(kv1o, q, params)
         print('id', q['id'])
-        print('stats', stats)
-        stats.to_csv(
-            f"csv/{q['id']}-{int(datetime.now().timestamp())}.csv",
-            index=False,
-        )
-        point = Point("mem")\
-            .tag("id", q['id'])\
-            .time(
-                datetime.fromtimestamp(float(stats['timestamp'])),
-                WritePrecision.NS
+        try:
+            _, stats = get_stats(kv1o, q, params)
+            print('stats', stats)
+            stats.to_csv(
+                f"csv/{q['id']}-{int(datetime.now().timestamp())}.csv",
+                index=False,
             )
+            point = Point("mem")\
+                .tag("id", q['id'])\
+                .time(
+                    datetime.fromtimestamp(float(stats['timestamp'])),
+                    WritePrecision.NS
+                )
 
-        for col in stats.columns:
-            if col != 'timestamp':
-                point = point.field(col, float(stats[col]))
+            for col in stats.columns:
+                if col != 'timestamp':
+                    point = point.field(col, float(stats[col]))
 
-        print(f"Writing {q['id']} to api ...")
-        write_api.write(config['bucket'], config['org'], point)
+            print(f"Writing {q['id']} to api ...")
+            write_api.write(config['bucket'], config['org'], point)
+        except:
+            print("Failed to write quote stats to influx")
 
     client.close()
