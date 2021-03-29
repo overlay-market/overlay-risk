@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import json
 import typing as tp
 
 from brownie import network, Contract
@@ -43,74 +44,25 @@ def get_params() -> tp.Dict:
     }
 
 
-def quotes(params: tp.Dict) -> tp.List:
-    return [
-        {
-            "id": "SushiswapV1Oracle: WBTC-WETH",
-            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
-            "token_out": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",  # WBTC
-            "amount_in": 1e18,
-            "points": params["points"],
-            "window": params["window"],
-        },
-        {
-            "id": "SushiswapV1Oracle: USDC-WETH",
-            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
-            "token_out": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC
-            "amount_in": 1e18,
-            "points": params["points"],
-            "window": params["window"],
-        },
-        {
-            "id": "SushiswapV1Oracle: AAVE-WETH",
-            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
-            "token_out": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",  # AAVE
-            "amount_in": 1e18,
-            "points": params["points"],
-            "window": params["window"],
-        },
-        {
-            "id": "SushiswapV1Oracle: SUSHI-WETH",
-            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
-            "token_out": "0x6b3595068778dd592e39a122f4f5a5cf09c90fe2",  # SUSHI
-            "amount_in": 1e18,
-            "points": params["points"],
-            "window": params["window"],
-        },
-        {
-            "id": "SushiswapV1Oracle: SNX-WETH",
-            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
-            "token_out": "0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f",  # SNX
-            "amount_in": 1e18,
-            "points": params["points"],
-            "window": params["window"],
-        },
-        {
-            "id": "SushiswapV1Oracle: YFI-WETH",
-            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
-            "token_out": "0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e",  # YFI
-            "amount_in": 1e18,
-            "points": params["points"],
-            "window": params["window"],
-        },
-        {
-            "id": "SushiswapV1Oracle: COMP-WETH",
-            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
-            "token_out": "0xc00e94cb662c3520282e6f5717214004a7f26888",  # COMP
-            "amount_in": 1e18,
-            "points": params["points"],
-            "window": params["window"],
-        },
-        {
-            "id": "SushiswapV1Oracle: UNI-WETH",
-            "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
-            "token_out": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",  # UNI
-            "amount_in": 1e18,
-            "points": params["points"],
-            "window": params["window"],
-        }
-        # TODO: OVL-WETH ...
-    ]
+def get_quote_path() -> str:
+    base = os.path.dirname(os.path.abspath(__file__))
+    qp = 'constants/quotes.json'
+    return os.path.join(base, qp)
+
+
+def get_quotes() -> tp.List:
+    quotes = []
+    p = get_quote_path()
+    with open(p) as f:
+        data = json.load(f)
+        quotes = data.get('quotes', [])
+    return quotes
+
+
+def get_points_total(kv1o, q: tp.Dict) -> int:
+    pair = kv1o.pairFor(q["token_in"], q["token_out"])
+    n = kv1o.observationLength(pair)
+    return int(n / q["window"])
 
 
 # Calcs Normalized VaR * a^n
@@ -163,6 +115,7 @@ def main():
     print(f"You are using the '{network.show_active()}' network")
     config = get_config()
     params = get_params()
+    quotes = get_quotes()
     kv1o = KV1O()
     client = create_client(config)
     write_api = client.write_api(
@@ -170,10 +123,7 @@ def main():
         point_settings=get_point_settings(),
     )
 
-    # TODO: Populate with historical stats as long as observations.length
-    # prior to the cron update over the past month
-
-    for q in quotes(params):
+    for q in quotes:
         _, stats = get_stats(kv1o, q, params)
         print('id', q['id'])
         print('stats', stats)
