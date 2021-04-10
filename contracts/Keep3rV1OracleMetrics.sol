@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.6.12;
+pragma solidity ^0.8.0;
 
 // Copied and modified from keep3r network code:
 // https://github.com/keep3r-network/keep3r.network/blob/master/contracts/Keep3rV1Volatility.sol

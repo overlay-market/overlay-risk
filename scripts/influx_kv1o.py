@@ -17,7 +17,7 @@ def get_config() -> tp.Dict:
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
         "bucket": "ovl_kv1o",
-        "url": "https://us-central1-1.gcp.cloud2.influxdata.com",
+        "url": os.getenv("INFLUXDB_URL"),
     }
 
 

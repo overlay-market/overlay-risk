@@ -101,7 +101,7 @@
         },
         {
             "id": "Sushiswap: ALPHA / WETH",
-            "pair": "0xf55c33d94150d93c2cfb833bcca30be388b14964",
+            "pair": "0xf55C33D94150d93c2cfb833bcCA30bE388b14964",
             "token_in": "0xa1faa113cbe53436df28ff0aee54275c13b40975",
             "token_out": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
             "amount_in": 1e18,
@@ -110,7 +110,7 @@
         },
         {
             "id": "Sushiswap: ALCX / WETH",
-            "pair": "0xc3f279090a47e80990fe3a9c30d24cb117ef91a8",
+            "pair": "0xC3f279090a47e80990Fe3a9c30d24Cb117EF91a8",
             "token_in": "0xdbdb4d16eda451d0503b854cf79d55697f90c8df",
             "token_out": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
             "amount_in": 1e18,
@@ -119,7 +119,7 @@
         },
         {
             "id": "Sushiswap: RUNE / WETH",
-            "pair": "0xcc39592f5cb193a70f262aa301f54db1d600e6da",
+            "pair": "0xcc39592f5cB193a70f262aA301f54DB1d600e6Da",
             "token_in": "0x3155ba85d5f96b2d030a4966af206230e46849cb",
             "token_out": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
             "amount_in": 1e18,
