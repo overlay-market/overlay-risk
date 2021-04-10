@@ -34,7 +34,13 @@ To run the project you need:
 
 ## Installation
 
-Use [Poetry](https://github.com/python-poetry/poetry) for dependencies. Clone the repo, then
+Using [Poetry](https://github.com/python-poetry/poetry) for dependencies. Install with `pipx`
+
+```
+pipx install poetry
+```
+
+Clone the repo, then
 
 ```
 poetry install
