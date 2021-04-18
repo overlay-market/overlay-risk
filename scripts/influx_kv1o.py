@@ -46,7 +46,7 @@ def get_params() -> tp.Dict:
 
 def get_quote_path() -> str:
     base = os.path.dirname(os.path.abspath(__file__))
-    qp = 'constants/quotes_kv1o.json'
+    qp = 'constants/quotes.json'
     return os.path.join(base, qp)
 
 
