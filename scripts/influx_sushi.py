@@ -36,12 +36,6 @@ def PAIR(addr: str) -> Contract:
     return Contract.from_explorer(addr)
 
 
-def get_params() -> tp.Dict:
-    return {
-        "period": 1800,  # in seconds
-    }
-
-
 def get_quote_path() -> str:
     base = os.path.dirname(os.path.abspath(__file__))
     qp = 'constants/quotes.json'
@@ -57,21 +51,14 @@ def get_quotes() -> tp.List:
     return quotes
 
 
-# Only write to influxdb every `period` seconds
-def can_write(pair, read_api, q: tp.Dict, p: tp.Dict) -> bool:
-    last_pc = pair.blockTimestampLast()
-
-    # TODO: read_api read last datapoint written to influx
-    last_write = read_api.read(q["id"])
-    return (last_pc - p["period"]) > last_write
-
-
 # Get last price cumulatives for timeseries data
-def get_prices(pair, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
+def get_prices(q: tp.Dict) -> pd.DataFrame:
+    pair = PAIR(q['pair'])
+
     # uniswapv2 pair cumulative data views
     p0c = pair.price0CumulativeLast();
     p1c = pair.price1CumulativeLast();
-    timestamp = pair.blockTimestampLast()
+    _, _, timestamp = pair.getReserves()
 
     # Put into a dataframe
     data = np.array([timestamp, p0c, p1c])
@@ -83,7 +70,6 @@ def get_prices(pair, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
 def main():
     print(f"You are using the '{network.show_active()}' network")
     config = get_config()
-    params = get_params()
     quotes = get_quotes()
     client = create_client(config)
     write_api = client.write_api(
@@ -91,22 +77,12 @@ def main():
         point_settings=get_point_settings(),
     )
 
-    # TODO: implement read_api init properly
-    read_api = client.read_api()
-
     for q in quotes:
-        print('id', q['id'])
-        if not can_write(pair, read_api, q, params):
-            continue
-
         try:
-            _, prices = get_prices(pair, q, params)
+            print('id', q['id'])
+            prices = get_prices(q)
             print('prices', prices)
 
-            stats.to_csv(
-                f"csv/pc/{q['id']}-{int(datetime.now().timestamp())}.csv",
-                index=False,
-            )
             point = Point("mem")\
                 .tag("id", q['id'])\
                 .time(
@@ -121,6 +97,6 @@ def main():
             print(f"Writing {q['id']} to api ...")
             write_api.write(config['bucket'], config['org'], point)
         except:
-            print("Failed to write quote stats to influx")
+            print("Failed to write quote prices to influx")
 
     client.close()
