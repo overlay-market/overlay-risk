@@ -57,3 +57,16 @@ To run, for example, the script to ingest stat parameters for historical risk an
 poetry shell
 brownie run influx_kv1o --network mainnet
 ```
+
+### Crons
+
+To save on gas costs for this risk analysis, there are cron schedulers to run Brownie scripts every 10 minutes, fetching cumulative price values from SushiSwap and uploading them to InfluxDB for easy-to-access historical timeseries.
+
+To setup the cron, simply from the base dir
+
+```
+poetry shell
+python scripts/cron/schedule_sushi.py
+```
+
+which will run every 10 minutes storing new cumulative price data from all quotes in `scripts/constants/quotes.json`.
