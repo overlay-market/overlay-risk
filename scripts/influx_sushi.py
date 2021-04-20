@@ -3,6 +3,7 @@ import numpy as np
 import os
 import json
 import typing as tp
+import logging
 
 from brownie import network, Contract
 from datetime import datetime
@@ -56,6 +57,7 @@ def get_prices(q: tp.Dict) -> pd.DataFrame:
     pair = PAIR(q['pair'])
 
     # uniswapv2 pair cumulative data views
+    # TODO: Store which token is token 1 and which is token 0
     p0c = pair.price0CumulativeLast();
     p1c = pair.price1CumulativeLast();
     _, _, timestamp = pair.getReserves()
@@ -96,7 +98,8 @@ def main():
 
             print(f"Writing {q['id']} to api ...")
             write_api.write(config['bucket'], config['org'], point)
-        except:
+        except Exception as e:
             print("Failed to write quote prices to influx")
+            logging.exception(e)
 
     client.close()

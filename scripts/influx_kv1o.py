@@ -3,6 +3,7 @@ import numpy as np
 import os
 import json
 import typing as tp
+import logging
 
 from brownie import network, Contract
 from datetime import datetime
@@ -145,7 +146,8 @@ def main():
 
             print(f"Writing {q['id']} to api ...")
             write_api.write(config['bucket'], config['org'], point)
-        except:
+        except Exception as e:
             print("Failed to write quote stats to influx")
+            logging.exception(e)
 
     client.close()
