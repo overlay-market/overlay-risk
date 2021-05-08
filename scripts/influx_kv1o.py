@@ -23,7 +23,7 @@ def get_config() -> tp.Dict:
 
 
 def create_client(config: tp.Dict) -> InfluxDBClient:
-    return InfluxDBClient(url=config['url'], token=config['token'], debug=False)
+    return InfluxDBClient(url=config['url'], token=config['token'], org = config['org'], debug=False)
 
 
 def get_point_settings() -> PointSettings:
@@ -105,11 +105,26 @@ def get_stats(kv1o, q: tp.Dict, p: tp.Dict) -> (str, pd.DataFrame):
     data = np.concatenate(([timestamp, mu, ss], vars), axis=None)
 
     df = pd.DataFrame(data=data).T
-    df.columns = ['timestamp', 'mu', 'sigSqrd', 'VaR 5% * a^n',
-                  'VaR 1% * a^n', 'VaR 0.1% * a^n',
-                  'VaR 0.01% * a^n']
+    df.columns = ['timestamp', 'mu', 'sigSqrd', 'VaR 5',
+                  'VaR 1', 'VaR 0.1',
+                  'VaR 0.01']
 
+    # df['timestamp'] = int(datetime.utcnow().timestamp()) - 19800 # just a simulation. delete this in prod
     return pair, df
+
+def create_csv(df: pd.DataFrame, q: tp.Dict):
+    
+    # Create directory called 'csv' only if it does not exist
+    if not os.path.exists('csv'):
+        os.makedirs('csv')
+
+    # Name the csv file
+    name_quote = q['id'].replace(':', '-').replace(' / ', ' ') # Replace special characters from file names
+
+    df.to_csv(
+        f"csv/{name_quote}-{int(datetime.now().timestamp())}.csv", 
+        index=False,
+    )
 
 
 def main():
@@ -118,23 +133,21 @@ def main():
     params = get_params()
     quotes = get_quotes()
     kv1o = KV1O()
+
     client = create_client(config)
     write_api = client.write_api(
         write_options=SYNCHRONOUS,
         point_settings=get_point_settings(),
     )
-
+    
     for q in quotes:
         print('id', q['id'])
         try:
             _, stats = get_stats(kv1o, q, params)
             print('stats', stats)
-            stats.to_csv(
-                f"csv/{q['id']}-{int(datetime.now().timestamp())}.csv",
-                index=False,
-            )
+            create_csv(stats, q)
             point = Point("mem")\
-                .tag("id", q['id'])\
+                .tag("id", q['id'].replace(' / ', '-'))\
                 .time(
                     datetime.fromtimestamp(float(stats['timestamp'])),
                     WritePrecision.NS
@@ -146,8 +159,16 @@ def main():
 
             print(f"Writing {q['id']} to api ...")
             write_api.write(config['bucket'], config['org'], point)
-        except Exception as e:
-            print("Failed to write quote stats to influx")
-            logging.exception(e)
 
+        except Exception as e:
+            err_cls = e.__class__
+            err_msg = str(e)
+            msg = f'''
+            Failed to write quote stats to influx.
+            Error type = {err_cls}
+            Error message = {err_msg}
+            '''
+            print(msg)
+            
     client.close()
+
