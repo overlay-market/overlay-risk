@@ -88,7 +88,7 @@ def main():
             point = Point("mem")\
                 .tag("id", q['id'])\
                 .time(
-                    datetime.fromtimestamp(float(prices['timestamp'])),
+                    datetime.utcfromtimestamp(float(prices['timestamp'])),
                     WritePrecision.NS
                 )
 
