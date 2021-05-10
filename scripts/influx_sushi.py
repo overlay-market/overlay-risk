@@ -58,6 +58,7 @@ def get_prices(q: tp.Dict) -> pd.DataFrame:
 
     # uniswapv2 pair cumulative data views
     # TODO: Store which token is token 1 and which is token 0
+        # DONE: token0_name and token1_name are "tags" passed to influxdb, the same way as pair id is
     p0c = pair.price0CumulativeLast();
     p1c = pair.price1CumulativeLast();
     _, _, timestamp = pair.getReserves()
@@ -87,6 +88,8 @@ def main():
 
             point = Point("mem")\
                 .tag("id", q['id'])\
+                .tag('token0_name', q['id'].split(' / ')[0].split(': ')[1])\
+                .tag('token1_name', q['id'].split(' / ')[1])\
                 .time(
                     datetime.utcfromtimestamp(float(prices['timestamp'])),
                     WritePrecision.NS
@@ -103,3 +106,6 @@ def main():
             logging.exception(e)
 
     client.close()
+
+
+

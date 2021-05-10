@@ -138,9 +138,9 @@ def get_stat(timestamp: int, sample: np.ndarray, q: tp.Dict, p: tp.Dict) -> pd.D
     data = np.concatenate(([timestamp, mu, ss], vars), axis=None)
 
     df = pd.DataFrame(data=data).T
-    df.columns = ['timestamp', 'mu', 'sigSqrd', 'VaR 5% * a^n',
-                  'VaR 1% * a^n', 'VaR 0.1% * a^n',
-                  'VaR 0.01% * a^n']
+    df.columns = ['timestamp', 'mu', 'sigSqrd', 'VaR 5',
+                  'VaR 1', 'VaR 0.1',
+                  'VaR 0.01']
     return df
 
 
@@ -176,7 +176,7 @@ def main():
                     .tag("id", q['id'])\
                     .tag("_type", f"price{i}Cumulative")\
                     .time(
-                        datetime.fromtimestamp(float(stat['timestamp'])),
+                        datetime.utcfromtimestamp(float(stat['timestamp'])),
                         WritePrecision.NS
                     )
 
@@ -192,3 +192,6 @@ def main():
             logging.exception(e)
 
     client.close()
+
+if __name__ == '__main__':
+    main()
