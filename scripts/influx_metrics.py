@@ -94,11 +94,13 @@ def get_twap(df: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> np.ndarray:
     dp = df.filter(items=['_value'])\
         .rolling(window=window)\
         .apply(lambda w : w[-1] - w[0], raw=True)
-    # for time, need to map to timestamp first! then apply delt
+
+    # for time, need to map to timestamp first! then apply delta
     dt = df.filter(items=['_time'])\
         .applymap(datetime.timestamp)\
         .rolling(window=window)\
         .apply(lambda w : w[-1] - w[0], raw=True)
+
     twap = (dp['_value'] / dt['_time']).to_numpy()
 
     # Return with NaNs filtered out
@@ -147,6 +149,14 @@ def get_stat(timestamp: int, sample: np.ndarray, q: tp.Dict, p: tp.Dict) -> pd.D
 def get_stats(timestamp: int, samples: tp.List[np.ndarray], q: tp.Dict, p: tp.Dict) -> tp.List[pd.DataFrame]:
     return [get_stat(timestamp, sample, q, p) for sample in samples]
 
+def get_token_name(i: int, id: str):
+    if i == 0:
+        token_name = id.split(' / ')[0].split(': ')[1]
+    else:
+        token_name = id.split(' / ')[1]
+
+    return token_name
+
 
 def main():
     print(f"You are using data from the mainnet network")
@@ -172,8 +182,12 @@ def main():
             print('stats[1]', stats[1])
 
             for i, stat in enumerate(stats):
+
+                token_name = get_token_name(i, q['id'])
+                
                 point = Point("mem")\
                     .tag("id", q['id'])\
+                    .tag('token_name', token_name)\
                     .tag("_type", f"price{i}Cumulative")\
                     .time(
                         datetime.utcfromtimestamp(float(stat['timestamp'])),
