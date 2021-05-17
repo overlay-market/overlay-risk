@@ -12,6 +12,10 @@ from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
 
 
+# Fixed point resolution of price cumulatives
+PC_RESOLUTION = 112
+
+
 def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
@@ -88,6 +92,11 @@ def get_price_cumulatives(query_api, cfg: tp.Dict, q: tp.Dict, p: tp.Dict) -> (i
     return timestamp, [df_p0c, df_p1c]
 
 
+def compute_amount_out(twap_112: np.ndarray, amount_in: int) -> np.ndarray:
+    rshift = np.vectorize(lambda x: int(x * amount_in) >> PC_RESOLUTION)
+    return rshift(twap_112)
+
+
 def get_twap(df: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> np.ndarray:
     window = p['window']
 
@@ -95,16 +104,17 @@ def get_twap(df: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> np.ndarray:
         .rolling(window=window)\
         .apply(lambda w : w[-1] - w[0], raw=True)
 
-    # for time, need to map to timestamp first! then apply delta
+    # for time, need to map to timestamp first then apply delta
     dt = df.filter(items=['_time'])\
         .applymap(datetime.timestamp)\
         .rolling(window=window)\
         .apply(lambda w : w[-1] - w[0], raw=True)
 
-    twap = (dp['_value'] / dt['_time']).to_numpy()
+    # with NaNs filtered out
+    twap_112 = (dp['_value'] / dt['_time']).to_numpy()
+    twap_112 = twap_112[np.logical_not(np.isnan(twap_112))]
 
-    # Return with NaNs filtered out
-    return twap[np.logical_not(np.isnan(twap))]
+    return compute_amount_out(twap_112, q['amount_in'])
 
 
 def get_twaps(dfs: tp.List[pd.DataFrame], q: tp.Dict, p: tp.Dict) -> tp.List[np.ndarray]:
@@ -182,9 +192,7 @@ def main():
             print('stats[1]', stats[1])
 
             for i, stat in enumerate(stats):
-
                 token_name = get_token_name(i, q['id'])
-                
                 point = Point("mem")\
                     .tag("id", q['id'])\
                     .tag('token_name', token_name)\
