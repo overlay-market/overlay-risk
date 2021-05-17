@@ -97,7 +97,7 @@ def compute_amount_out(twap_112: np.ndarray, amount_in: int) -> np.ndarray:
     return rshift(twap_112)
 
 
-def get_twap(df: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> np.ndarray:
+def get_twap(df: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
     window = p['window']
 
     dp = df.filter(items=['_value'])\
@@ -113,12 +113,27 @@ def get_twap(df: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> np.ndarray:
     # with NaNs filtered out
     twap_112 = (dp['_value'] / dt['_time']).to_numpy()
     twap_112 = twap_112[np.logical_not(np.isnan(twap_112))]
+    twaps = compute_amount_out(twap_112, q['amount_in'])
 
-    return compute_amount_out(twap_112, q['amount_in'])
+    # window times
+    window_times = dt['_time'].to_numpy()
+    window_times = window_times[np.logical_not(np.isnan(window_times))]
+
+    # window close timestamps
+    t = df.filter(items=['_time'])\
+        .applymap(datetime.timestamp)\
+        .rolling(window=window)\
+        .apply(lambda w : w[-1], raw=True)
+    ts = t['_time'].to_numpy()
+    ts = ts[np.logical_not(np.isnan(ts))]
+
+    df = pd.DataFrame(data=[ts, window_times, twaps]).T
+    df.columns = ['timestamp', 'window', 'twap']
+    return df
 
 
-def get_twaps(dfs: tp.List[pd.DataFrame], q: tp.Dict, p: tp.Dict) -> tp.List[np.ndarray]:
-    return [ get_twap(df, q, p) for df in dfs ]
+def get_twaps(pcs: tp.List[pd.DataFrame], q: tp.Dict, p: tp.Dict) -> tp.List[pd.DataFrame]:
+    return [ get_twap(pc, q, p) for pc in pcs ]
 
 
 # Calcs Normalized VaR * a^n
@@ -187,7 +202,8 @@ def main():
             twaps = get_twaps(pcs, q, params)
 
             # Calc stats for each twap (NOT inverse of each other)
-            stats = get_stats(timestamp, twaps, q, params)
+            samples = [ twap['twap'].to_numpy() for twap in twaps ]
+            stats = get_stats(timestamp, samples, q, params)
             print('stats[0]', stats[0])
             print('stats[1]', stats[1])
 
