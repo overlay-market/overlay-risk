@@ -36,6 +36,7 @@ def get_point_settings() -> PointSettings:
     return point_settings
 
 
+# Will generate metrics for 1h TWAP over last 30 days with VaR stats for next 7 days
 def get_params() -> tp.Dict:
     return {
         "points": 30,  # 1 mo of data behind to estimate mles
@@ -189,6 +190,7 @@ def get_token_name(i: int, id: str):
     return token_name
 
 
+# SEE: get_params() for more info on setup
 def main():
     print(f"You are using data from the mainnet network")
     config = get_config()
@@ -206,15 +208,13 @@ def main():
         try:
             timestamp, pcs = get_price_cumulatives(query_api, config, q, params)
             twaps = get_twaps(pcs, q, params)
+            print('timestamp', timestamp)
             print('twaps', twaps)
 
             # Calc stats for each twap (NOT inverse of each other)
             samples = get_samples_from_twaps(twaps)
             stats = get_stats(timestamp, samples, q, params)
             print('stats', stats)
-
-            # TODO: remove ...
-            continue
 
             for i, stat in enumerate(stats):
                 token_name = get_token_name(i, q['id'])
