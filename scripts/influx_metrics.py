@@ -78,17 +78,17 @@ def get_price_cumulatives(query_api, cfg: tp.Dict, q: tp.Dict, p: tp.Dict) -> (i
             |> filter(fn: (r) => r["id"] == "{qid}")
     '''
     df = query_api.query_data_frame(query=query, org=cfg['org'])
+    if type(df) == list:
+        df = pd.concat(df, ignore_index=True)
 
     # Filter then separate the df into p0c and p1c dataframes
     df_filtered = df.filter(items=['_time', '_field', '_value'])
     p0c_field, p1c_field = get_price_fields()
-    df_p0c = df_filtered[df_filtered._field == p0c_field]
-    df_p1c = df_filtered[df_filtered._field == p1c_field]
+    df_p0c = df_filtered[df_filtered._field == p0c_field].sort_values(by='_time', ignore_index=True)
+    df_p1c = df_filtered[df_filtered._field == p1c_field].sort_values(by='_time', ignore_index=True)
 
     # Get the last timestamp
-    timestamp = datetime.timestamp(
-        df_filtered['_time'][len(df_filtered['_time'])-1]
-    )
+    timestamp = datetime.timestamp(df_p0c['_time'][len(df_p0c['_time'])-1])
 
     return timestamp, [df_p0c, df_p1c]
 
