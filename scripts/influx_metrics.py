@@ -222,9 +222,6 @@ def main():
             stats = get_stats(timestamp, samples, q, params)
             print('stats', stats)
 
-            # TODO: remove
-            continue
-
             for i, stat in enumerate(stats):
                 token_name = get_token_name(i, q['id'])
                 point = Point("mem")\
