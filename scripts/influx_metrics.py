@@ -12,6 +12,10 @@ from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
 
 
+# Fixed point resolution of price cumulatives
+PC_RESOLUTION = 112
+
+
 def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
@@ -32,12 +36,13 @@ def get_point_settings() -> PointSettings:
     return point_settings
 
 
+# Will generate metrics for 1h TWAP over last 30 days with VaR stats for next 7 days
 def get_params() -> tp.Dict:
     return {
         "points": 30,  # 1 mo of data behind to estimate mles
         "window": 6,  # 1h TWAPs (assuming ovl_sushi ingested every 10m)
-        "n": 24*7,  # n days forward to calculate VaR * a^n
-        "period": 10*60, # 10m periods
+        "n": 1008,  # 7 days forward to calculate VaR * a^n (number of 10 min periods in 7 days)
+        "period": 600, # 10m periods
     }
 
 
@@ -73,45 +78,73 @@ def get_price_cumulatives(query_api, cfg: tp.Dict, q: tp.Dict, p: tp.Dict) -> (i
             |> filter(fn: (r) => r["id"] == "{qid}")
     '''
     df = query_api.query_data_frame(query=query, org=cfg['org'])
+    if type(df) == list:
+        df = pd.concat(df, ignore_index=True)
 
     # Filter then separate the df into p0c and p1c dataframes
     df_filtered = df.filter(items=['_time', '_field', '_value'])
     p0c_field, p1c_field = get_price_fields()
-    df_p0c = df_filtered[df_filtered._field == p0c_field]
-    df_p1c = df_filtered[df_filtered._field == p1c_field]
+    df_p0c = df_filtered[df_filtered['_field'] == p0c_field].sort_values(by='_time', ignore_index=True)
+    df_p1c = df_filtered[df_filtered['_field'] == p1c_field].sort_values(by='_time', ignore_index=True)
 
     # Get the last timestamp
-    timestamp = datetime.timestamp(
-        df_filtered['_time'][len(df_filtered['_time'])-1]
-    )
+    timestamp = datetime.timestamp(df_p0c['_time'][len(df_p0c['_time'])-1])
 
     return timestamp, [df_p0c, df_p1c]
 
 
-def get_twap(df: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> np.ndarray:
+def compute_amount_out(twap_112: np.ndarray, amount_in: int) -> np.ndarray:
+    rshift = np.vectorize(lambda x: int(x * amount_in) >> PC_RESOLUTION)
+    return rshift(twap_112)
+
+
+def get_twap(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
     window = p['window']
 
-    dp = df.filter(items=['_value'])\
+    dp = pc.filter(items=['_value'])\
         .rolling(window=window)\
         .apply(lambda w : w[-1] - w[0], raw=True)
 
-    # for time, need to map to timestamp first! then apply delta
-    dt = df.filter(items=['_time'])\
+    # for time, need to map to timestamp first then apply delta
+    dt = pc.filter(items=['_time'])\
         .applymap(datetime.timestamp)\
         .rolling(window=window)\
         .apply(lambda w : w[-1] - w[0], raw=True)
 
-    twap = (dp['_value'] / dt['_time']).to_numpy()
+    # with NaNs filtered out
+    twap_112 = (dp['_value'] / dt['_time']).to_numpy()
+    twap_112 = twap_112[np.logical_not(np.isnan(twap_112))]
+    twaps = compute_amount_out(twap_112, q['amount_in'])
 
-    # Return with NaNs filtered out
-    return twap[np.logical_not(np.isnan(twap))]
+    # window times
+    window_times = dt['_time'].to_numpy()
+    window_times = window_times[np.logical_not(np.isnan(window_times))]
+
+    # window close timestamps
+    t = pc.filter(items=['_time'])\
+        .applymap(datetime.timestamp)\
+        .rolling(window=window)\
+        .apply(lambda w : w[-1], raw=True)
+    ts = t['_time'].to_numpy()
+    ts = ts[np.logical_not(np.isnan(ts))]
+
+    df = pd.DataFrame(data=[ts, window_times, twaps]).T
+    df.columns = ['timestamp', 'window', 'twap']
+
+    # filter out any twaps that are less than or equal to 0; TODO: why? injestion from sushi?
+    df = df[df['twap'] > 0]
+    return df
 
 
-def get_twaps(dfs: tp.List[pd.DataFrame], q: tp.Dict, p: tp.Dict) -> tp.List[np.ndarray]:
-    return [ get_twap(df, q, p) for df in dfs ]
+def get_twaps(pcs: tp.List[pd.DataFrame], q: tp.Dict, p: tp.Dict) -> tp.List[pd.DataFrame]:
+    return [ get_twap(pc, q, p) for pc in pcs ]
 
 
-# Calcs Normalized VaR * a^n
+def get_samples_from_twaps(twaps: tp.List[pd.DataFrame]) -> tp.List[np.ndarray]:
+    return [ twap['twap'].to_numpy() for twap in twaps ]
+
+
+# Calcs VaR * d^n normalized for initial imbalance
 # See: https://oips.overlay.market/notes/note-4
 def calc_vars(mu: float,
               sig_sqrd: float,
@@ -123,12 +156,11 @@ def calc_vars(mu: float,
 
 
 def get_stat(timestamp: int, sample: np.ndarray, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
-    t = p["period"] * p["window"]
+    t = p["period"]
 
     # mles
     rs = [
         np.log(sample[i]/sample[i-1]) for i in range(1, len(sample), 1)
-        if sample[i]/sample[i-1] > 0 # TODO: investigate why twap calc was giving negative bad data (influx ingest?)
     ]
     mu = float(np.mean(rs) / t)
     ss = float(np.var(rs) / t)
@@ -158,6 +190,7 @@ def get_token_name(i: int, id: str):
     return token_name
 
 
+# SEE: get_params() for more info on setup
 def main():
     print(f"You are using data from the mainnet network")
     config = get_config()
@@ -175,16 +208,16 @@ def main():
         try:
             timestamp, pcs = get_price_cumulatives(query_api, config, q, params)
             twaps = get_twaps(pcs, q, params)
+            print('timestamp', timestamp)
+            print('twaps', twaps)
 
             # Calc stats for each twap (NOT inverse of each other)
-            stats = get_stats(timestamp, twaps, q, params)
-            print('stats[0]', stats[0])
-            print('stats[1]', stats[1])
+            samples = get_samples_from_twaps(twaps)
+            stats = get_stats(timestamp, samples, q, params)
+            print('stats', stats)
 
             for i, stat in enumerate(stats):
-
                 token_name = get_token_name(i, q['id'])
-                
                 point = Point("mem")\
                     .tag("id", q['id'])\
                     .tag('token_name', token_name)\
