@@ -17,6 +17,14 @@
             "amount_in": 1e18
         },
         {
+            "id": "Sushiswap: WETH / DAI",
+            "pair": "0xc3d03e4f041fd4cd388c549ee2a29a9e5075882f",
+            "token0": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+            "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "is_price0": false,
+            "amount_in": 1e18
+        },
+        {
             "id": "Sushiswap: AAVE / WETH",
             "pair": "0xD75EA151a61d06868E31F8988D28DFE5E9df57B4",
             "token0": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
