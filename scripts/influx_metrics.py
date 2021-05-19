@@ -41,8 +41,9 @@ def get_params() -> tp.Dict:
     return {
         "points": 30,  # 1 mo of data behind to estimate mles
         "window": 6,  # 1h TWAPs (assuming ovl_sushi ingested every 10m)
-        "n": 1008,  # 7 days forward to calculate VaR * a^n (number of 10 min periods in 7 days)
         "period": 600, # 10m periods
+        "alpha": [0.05, 0.01, 0.001, 0.0001], # alpha uncertainty in VaR calc
+        "n": [144, 1008, 2016, 4320],  # number of periods into the future over which VaR is calculated
     }
 
 
@@ -148,7 +149,8 @@ def get_samples_from_twaps(twaps: tp.List[pd.DataFrame]) -> tp.List[np.ndarray]:
 # See: https://oips.overlay.market/notes/note-4
 def calc_vars(mu: float,
               sig_sqrd: float,
-              n: int, t: int, alphas: np.ndarray) -> np.ndarray:
+              t: int,
+              n: int, alphas: np.ndarray) -> np.ndarray:
     sig = np.sqrt(sig_sqrd)
     q = 1-alphas
     pow = mu*n*t + sig*np.sqrt(n*t)*norm.ppf(q)
@@ -166,15 +168,19 @@ def get_stat(timestamp: int, sample: np.ndarray, q: tp.Dict, p: tp.Dict) -> pd.D
     ss = float(np.var(rs) / t)
 
     # VaRs for 5%, 1%, 0.1%, 0.01% alphas, n periods into the future
-    n = p["n"]
-    alphas = np.array([0.05, 0.01, 0.001, 0.0001])
-    vars = calc_vars(mu, ss, n, t, alphas)
-    data = np.concatenate(([timestamp, mu, ss], vars), axis=None)
+    alphas = np.array(p["alpha"])
+    ns = np.array(p["n"])
+    vars = [ calc_vars(mu, ss, t, n, alphas) for n in ns ]
+    var_labels = [
+        f'VaR alpha={alpha} n={n}'
+        for n in ns
+        for alpha in alphas
+    ]
+
+    data = np.concatenate(([timestamp, mu, ss], *vars), axis=None)
 
     df = pd.DataFrame(data=data).T
-    df.columns = ['timestamp', 'mu', 'sigSqrd', 'VaR 5',
-                  'VaR 1', 'VaR 0.1',
-                  'VaR 0.01']
+    df.columns = ['timestamp', 'mu', 'sigSqrd', *var_labels]
     return df
 
 
