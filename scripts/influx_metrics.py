@@ -5,7 +5,7 @@ import json
 import typing as tp
 import logging
 
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from scipy.stats import norm
 
 from influxdb_client import InfluxDBClient, Point, WritePrecision
@@ -187,14 +187,6 @@ def get_stat(timestamp: int, sample: np.ndarray, q: tp.Dict, p: tp.Dict) -> pd.D
 def get_stats(timestamp: int, samples: tp.List[np.ndarray], q: tp.Dict, p: tp.Dict) -> tp.List[pd.DataFrame]:
     return [get_stat(timestamp, sample, q, p) for sample in samples]
 
-def get_token_name(i: int, id: str):
-    if i == 0:
-        token_name = id.split(' / ')[0].split(': ')[1]
-    else:
-        token_name = id.split(' / ')[1]
-
-    return token_name
-
 
 # SEE: get_params() for more info on setup
 def main():
@@ -213,6 +205,13 @@ def main():
         print('id', q['id'])
         try:
             timestamp, pcs = get_price_cumulatives(query_api, config, q, params)
+            data_days = pcs[0]['_time'].max() - pcs[0]['_time'].min() # Calculate difference between max and min date.
+            print(f"Number of days between latest and first data point: {data_days}")
+
+            if data_days < timedelta(days = params['points']):
+                print(f"This pair has less than {params['points']} days of data, therefore it is not being ingested to {config['bucket']}")
+                continue # Go to next iteration of loop (ie, next quote) if condition is not satisfied
+
             twaps = get_twaps(pcs, q, params)
             print('timestamp', timestamp)
             print('twaps', twaps)
@@ -223,7 +222,7 @@ def main():
             print('stats', stats)
 
             for i, stat in enumerate(stats):
-                token_name = get_token_name(i, q['id'])
+                token_name = q[f'token{i}_name']
                 point = Point("mem")\
                     .tag("id", q['id'])\
                     .tag('token_name', token_name)\
@@ -245,6 +244,7 @@ def main():
             logging.exception(e)
 
     client.close()
+
 
 if __name__ == '__main__':
     main()

@@ -86,8 +86,8 @@ def main():
 
             point = Point("mem")\
                 .tag("id", q['id'])\
-                .tag('token0_name', q['id'].split(' / ')[0].split(': ')[1])\
-                .tag('token1_name', q['id'].split(' / ')[1])\
+                .tag('token0_name', q['token0_name'])\
+                .tag('token1_name', q['token1_name'])\
                 .time(
                     datetime.utcfromtimestamp(float(prices['timestamp'])),
                     WritePrecision.NS
