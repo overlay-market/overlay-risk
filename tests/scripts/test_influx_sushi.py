@@ -40,5 +40,6 @@ class TestInfluxSushi(unittest.TestCase):
         quotes specified in `scripts/constants/quotes.json`.
 
         For each quote in JSON file, should write fetched priceCumulative data to InfluxDB as a separate point
+        in config `bucket` of config `org`
         """
         pass
