@@ -48,3 +48,28 @@ class TestInfluxMetrics(unittest.TestCase):
           - priceCumulatives1: DataFrame with columns ['_time', '_value'] where '_value' is priceCumulative1 at unix timestamp '_time'
         """
         pass
+
+    def test_compute_amount_out(self):
+        """
+        compute_amount_out(twap_112, amount_in) should convert FixedPoint.uq112x112 price average
+        values of `twap_112` into integer values.
+
+        `amount_in` is the unit value for the quote currency in the pair we are
+        computing for. e.g. WETH in SushiSwap YFI/WETH uses `amount_in = 1e18` (18 decimals)
+
+        SEE: e.g. https://github.com/overlay-market/overlay-v1-core/blob/master/contracts/OverlayV1MirinMarket.sol#L55
+        """
+        pass
+
+    def test_get_twap(self):
+        """
+        get_twap(priceCumulatives, quote, params) should calculate rolling TWAP values
+        for each (`_time`, `_value`) row in the `priceCumulatives` DataFrame. Rolling TWAP values
+        should be calculated with a window size of `params['window']`.
+
+        Should return a pandas DataFrame with columns [`timestamp`, `window`, `twap`] where for each row
+          - `timestamp` is the last timestamp in the rolling window (close time)
+          - `window` is the time elapsed within the window
+          - `twap` is the TWAP value calculated for the window
+        """
+        pass
