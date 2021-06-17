@@ -73,3 +73,49 @@ class TestInfluxMetrics(unittest.TestCase):
           - `twap` is the TWAP value calculated for the window
         """
         pass
+
+    def test_calc_vars(self):
+        """
+        calc_vars(mu, sig_sqrd, t, n, alphas) should calculate bracketed term
+
+        [e**(mu * n * t + sqrt(sig_sqrd * n * t) * Psi^{-1}(1 - alpha))]
+
+        in Value at Risk (VaR) expressions for each alpha value in
+        numpy array `alphas`. `t` is the period size of how frequently we fetch updates
+        and `n` is number of update periods into the future we wish to examine
+        VaR values for.
+
+        Should return a numpy array of calculated values for each `alpha`.
+
+        SEE: https://oips.overlay.market/notes/note-4
+        """
+        pass
+
+    def test_get_stat(self):
+        """
+        get_stat(timestamp, sample, quote, params) should compute the maximum
+        likelihood estimates (MLEs) for distributional params of `sample` data
+        as well as bracketed VaR expressions for various confidence levels
+        specified in `params['alpha']` list.
+
+        MLE values having units of [time] should be in units of `params["period"]`.
+
+        VaR expressions should be calculated for each value of `n` in `params['n']`,
+        where `n` represents number of time periods into the future estimate
+        is relevant for.
+
+        Should return a pandas DataFrame with columns
+
+        [`timestamp`, *mle_labels, *var_labels]
+
+        where timestamp is timestamp given as input
+        """
+        pass
+
+    def test_main():
+        """
+        main() should
+
+
+        """
+        pass
