@@ -108,14 +108,21 @@ class TestInfluxMetrics(unittest.TestCase):
 
         [`timestamp`, *mle_labels, *var_labels]
 
-        where timestamp is timestamp given as input
+        where `timestamp` is last timestamp given as an input to get_stat fn
         """
         pass
 
     def test_main():
         """
-        main() should
+        main() should fetch price cumulative data over last get_params()['points'] number of days
+        from config `source` of `org`, for quotes specified in `scripts/constants/quotes.json`.
 
+        For each quote in JSON file, should compute rolling TWAP samples. Using
+        rolling TWAP samples, should determine statistical estimates for distributional params (MLEs) of TWAP.
+        With statistical estimates, should calculate VaR expressions and suggested funding constant `k`
+        values.
 
+        Should write computed statistical data (MLEs, VaRs) and funding constant suggested values
+        to InfluxDB as a separate point in config `bucket` of config `org`
         """
         pass
