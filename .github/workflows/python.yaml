@@ -2,13 +2,22 @@ name: Overlay Risk Repo
 
 on: [push]
 
-# on:
-#   push:
-#     branches:
-#       - main
-#     pull_request:
-#       branches:
-#         - main
+  # on:
+  #   push:
+  #     branches:
+  #       - main
+  #     pull_request:
+  #       branches:
+  #         - main
+
+  # env:
+  #   # ETHERSCAN_TOKEN:
+  #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #   # WEB3_INFURA_PROJECT_ID:
+  #
+  #   # increasing available memory for node reduces issues with ganache crashing
+  #   # https://nodejs.org/api/cli.html#cli_max_old_space_size_size_in_megabytes
+  #   NODE_OPTIONS: --max_old_space_size=4096
 
 jobs:
   build:
@@ -21,92 +30,109 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Cache Compiler Installations
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.solcx
+            ~/.vvm
+          key: compiler-cache
 
-    - name: Install poetry ${{ matrix.poetry-version }}
-      run: |
-        python -m ensurepip
-        python -m pip install --upgrade pip
-        python -m pip install poetry==${{ matrix.poetry-version }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v1
 
-    - name: View poetry --help
-      run: poetry --help
+      - name: Install Ganache
+        run: npm install -g ganache-cli@6.10.2
 
-    - name: Install dependencies
-      shell: bash
-      run: python -m poetry install
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Test with pytest
-      run: |
-        python -m poetry run python -m pytest -v tests
+      - name: Install poetry ${{ matrix.poetry-version }}
+        run: |
+          python -m ensurepip
+          python -m pip install --upgrade pip
+          python -m pip install poetry==${{ matrix.poetry-version }}
+
+      - name: View poetry --help
+        run: poetry --help
+
+      - name: Install dependencies
+        shell: bash
+        run: python -m poetry install
+
+      - name: Test with brownie
+        run: brownie test
+
+      - name: Test with pytest
+        run: |
+          python -m poetry run python -m pytest -v tests
 
 
-# jobs:
-#   build:
-#     runs-on: ubuntu-latest
-#     strategy:
-#       matrix:
-#         python-version: [3.5, 3.6, 3.7, 3.8, 3.9]
-#         poetry-version: [1.0, 1.1.6]
-#
-#     steps:
-#       - uses: actions/checkout@v2
-#       - uses: actions/setup-python@v2
-#         with:
-#           python-version: ${{ matrix.python-version }}
-#       - name: Run image
-#         uses: abatilo/actions-poetry@v2.0.0
-#         with:
-#           poetry-version: ${{ matrix.poetry-version }}
-#
-#       - name: View poetry --help
-#         run: poetry --help
-#
-#       - name: Run tests
-#         run: pytest
+        # jobs:
+        #   build:
+        #     runs-on: ubuntu-latest
+        #     strategy:
+        #       matrix:
+        #         python-version: [3.5, 3.6, 3.7, 3.8, 3.9]
+        #         poetry-version: [1.0, 1.1.6]
+        #
+        #     steps:
+        #       - uses: actions/checkout@v2
+        #       - uses: actions/setup-python@v2
+        #         with:
+        #           python-version: ${{ matrix.python-version }}
+        #       - name: Run image
+        #         uses: abatilo/actions-poetry@v2.0.0
+        #         with:
+        #           poetry-version: ${{ matrix.poetry-version }}
+        #
+        #       - name: View poetry --help
+        #         run: poetry --help
+        #
+        #       - name: Run tests
+        #         run: pytest
 
-# jobs:
-#   test:
-#     runs-on: ubuntu-latest
-#     strategy:
-#       matrix:
-#         # python-version: [3.5, 3.6, 3.7, 3.8, 3.9]
-#         # poetry-version: [1.0, 1.1.6]
-#         python-version: [3.9]
-#         poetry-version: [1.1.6]
-#
-#     steps:
-#       - name: Check out actions repo & setup python
-#         uses: actions/checkout@v2
-#       - name: Set up python
-#         uses: actions/setup-python@v2
-#         with:
-#           python-version: ${{ matrix.python-version }}
-#
-#       - name: Install & configure Poetry
-#         uses: snok/install-poetry@v1.1.6
-#         with:
-#           virtualenvs-create: true
-#           virtualenvs-in-project: true
-#
-#       - name: Load cached venv if exists
-#         id: cached-poetry-dependencies
-#         uses: actions/cache@v2
-#         with:
-#           path: .venv
-#           key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-#
-#       - name: Install dependencies if cache dne
-#         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-#         run: poetry install --no-interaction --no-root
-#
-#       - name: Install project dependencies
-#         run: poetry install --no-interaction
-#
-#       - name: Run tests
-#         run: poetry run pytest
+        # jobs:
+        #   test:
+        #     runs-on: ubuntu-latest
+        #     strategy:
+        #       matrix:
+        #         # python-version: [3.5, 3.6, 3.7, 3.8, 3.9]
+        #         # poetry-version: [1.0, 1.1.6]
+        #         python-version: [3.9]
+        #         poetry-version: [1.1.6]
+        #
+        #     steps:
+        #       - name: Check out actions repo & setup python
+        #         uses: actions/checkout@v2
+        #       - name: Set up python
+        #         uses: actions/setup-python@v2
+        #         with:
+        #           python-version: ${{ matrix.python-version }}
+        #
+        #       - name: Install & configure Poetry
+        #         uses: snok/install-poetry@v1.1.6
+        #         with:
+        #           virtualenvs-create: true
+        #           virtualenvs-in-project: true
+        #
+        #       - name: Load cached venv if exists
+        #         id: cached-poetry-dependencies
+        #         uses: actions/cache@v2
+        #         with:
+        #           path: .venv
+        #           key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+        #
+        #       - name: Install dependencies if cache dne
+        #         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        #         run: poetry install --no-interaction --no-root
+        #
+        #       - name: Install project dependencies
+        #         run: poetry install --no-interaction
+        #
+        #       - name: Run tests
+        #         run: poetry run pytest
