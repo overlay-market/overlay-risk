@@ -88,12 +88,37 @@ def get_params() -> tp.Dict:
 
 
 def get_quote_path() -> str:
+    '''
+    Returns full path to `quotes.json` file.
+
+    Outputs:
+        [str]:  Full path to `quotes.json` file
+
+    '''
     base = os.path.dirname(os.path.abspath(__file__))
     qp = 'constants/quotes.json'
     return os.path.join(base, qp)
 
 
 def get_quotes() -> tp.List:
+    '''
+    Loads from `scripts/constants/quotes.json` and return a List
+    of quote dicts for quote data fetched from SushiSwap.
+
+    Output:
+        [tp.List[dict]]
+        id         [str]:   Name of swap pair
+        pair       [str]:   Contract address of swap pair
+        token0     [str]:   Contract address of token 0 in swap pair
+        token1     [str]:   Contract address of token 1 in swap pair
+        is_price0  [bool]:  If true, use the TWAP value calculated from the
+                            `priceCumulative0` storage variable:
+                            `price0 = num_token_1 / num_token_0`
+
+                            If false, use the TWAP value calculated from the
+                            `priceCumulative1` storage variable
+        amount_in  [float]:  Swap input amount
+    '''
     quotes = []
     p = get_quote_path()
     with open(p) as f:

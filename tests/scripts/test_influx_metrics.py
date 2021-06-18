@@ -1,3 +1,4 @@
+import os
 import unittest
 from scripts import influx_metrics as imetrics
 import typing as tp
@@ -50,17 +51,42 @@ class TestInfluxMetrics(unittest.TestCase):
         for i in actual['n']:
             self.assertIsInstance(i, int)
 
-    def test_get_quotes(self):
-        """
-        get_quotes() should load from `scripts/constants/quotes.json` and
-        return a List
-        of quote dicts for quote data fetched from SushiSwap.
+    def test_get_quotes_path(self):
+        base = os.path.dirname(os.path.abspath(__file__))
+        base = os.path.abspath(os.path.join(base, os.pardir))
+        base = os.path.abspath(os.path.join(base, os.pardir))
+        qp = 'scripts/constants/quotes.json'
+        expected = os.path.join(base, qp)
 
-        Each quote dict should have keys
-        { "id": str, "pair": str, "token0": str, "token1": "str",
-        "is_price0": bool, "amount_in": float }
-        """
-        pass
+        actual = imetrics.get_quote_path()
+
+        self.assertEqual(expected, actual)
+
+    def test_get_quotes(self):
+        expected_keys = {'id', 'pair', 'token0', 'token1', 'is_price0',
+                         'amount_in'}
+        # Sushiswap: OVL / WETH dict should NOT contain `is_price0` key
+        expected_keys_no_is_price0 = {'id', 'pair', 'token0', 'token1',
+                                      'amount_in'}
+        actual = imetrics.get_quotes()
+
+        self.assertIsInstance(actual, tp.List)
+
+        for i in actual:
+            actual_keys = set(i.keys())
+
+            if i['id'] == 'Sushiswap: OVL / WETH':
+                # Sushiswap: OVL / WETH dict should NOT contain `is_price0` key
+                self.assertEqual(expected_keys_no_is_price0, actual_keys)
+            else:
+                self.assertEqual(expected_keys, actual_keys)
+                self.assertIsInstance(i['is_price0'], bool)
+
+            self.assertIsInstance(i['id'], str)
+            self.assertIsInstance(i['pair'], str)
+            self.assertIsInstance(i['token0'], str)
+            self.assertIsInstance(i['token1'], str)
+            self.assertIsInstance(i['amount_in'], float)
 
     def test_get_price_cumulatives(self):
         """
