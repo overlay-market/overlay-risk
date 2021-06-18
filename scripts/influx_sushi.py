@@ -7,7 +7,6 @@ import logging
 
 from brownie import network, Contract
 from datetime import datetime
-from scipy.stats import norm
 
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
@@ -17,13 +16,14 @@ def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
-        "bucket": os.getenv('INFLUXDB_BUCKET', 'ovl_sushi'),
+        "bucket": os.getenv('INFLUXDB_BUCKET', 'ovl_sushi_dev'),
         "url": os.getenv("INFLUXDB_URL"),
     }
 
 
 def create_client(config: tp.Dict) -> InfluxDBClient:
-    return InfluxDBClient(url=config['url'], token=config['token'], debug=False)
+    return InfluxDBClient(url=config['url'], token=config['token'],
+                          debug=False)
 
 
 def get_point_settings() -> PointSettings:
@@ -57,8 +57,8 @@ def get_prices(q: tp.Dict) -> pd.DataFrame:
     pair = PAIR(q['pair'])
 
     # uniswapv2 pair cumulative data views
-    p0c = pair.price0CumulativeLast();
-    p1c = pair.price1CumulativeLast();
+    p0c = pair.price0CumulativeLast()
+    p1c = pair.price1CumulativeLast()
     _, _, timestamp = pair.getReserves()
 
     # Put into a dataframe
