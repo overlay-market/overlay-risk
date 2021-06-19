@@ -17,17 +17,43 @@ PC_RESOLUTION = 112
 
 
 def get_config() -> tp.Dict:
+    '''
+    Returns a `config` dict containing InfluxDB configuration parameters
+
+    Outputs:
+        [tp.Dict]
+        token   [str]:  INFLUXDB_TOKEN env, InfluxDB token
+        org     [str]:  INFLUXDB_ORG env, InfluxDB organization
+        bucket  [str]:  INFLUXDB_BUCKET env, InfluxDB bucket
+        source  [str]:  INFLUXDB_SOURCE env, InfluxDB source bucket
+        url     [str]:  INFLUXDB_URL env, InfluxDB url
+    '''
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
-        "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_metrics"),
-        "source": os.getenv('INFLUXDB_SOURCE', "ovl_sushi"), # source bucket to query
+        "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_metrics_dev"),
+        "source": os.getenv('INFLUXDB_SOURCE', "ovl_sushi"),
         "url": os.getenv("INFLUXDB_URL"),
     }
 
 
 def create_client(config: tp.Dict) -> InfluxDBClient:
-    return InfluxDBClient(url=config['url'], token=config['token'], debug=False)
+    '''
+    Returns an InfluxDBClient initialized with config `url` and `token` params
+    returned by `get_config`
+
+    Inputs:
+        [tp.Dict]
+        token   [str]:  INFLUXDB_TOKEN env representing an InfluxDB token
+        url     [str]:  INFLUXDB_URL env representing an InfluxDB url
+
+    Outputs:
+        [InfluxDBClient]: InfluxDB client connection instance
+    '''
+    return InfluxDBClient(
+            url=config['url'],
+            token=config['token'],
+            debug=False)
 
 
 def get_point_settings() -> PointSettings:
@@ -36,24 +62,63 @@ def get_point_settings() -> PointSettings:
     return point_settings
 
 
-# Will generate metrics for 1h TWAP over last 30 days with VaR stats for next 7 days
 def get_params() -> tp.Dict:
+    '''
+    Returns a `params` dict for parameters to use in statistical estimates.
+    Generates metrics for 1h TWAP over last 30 days with VaR stats for next 7
+    days.
+
+    Outputs:
+        [tp.Dict]
+        points  [int]:          1 mo of data behind to estimate mles
+        window  [int]:          1h TWAPs (assuming ovl_sushi ingested every
+                                10m)
+        period  [int]:          10m periods [s]
+        alpha   List[float]:    alpha uncertainty in VaR calc
+        n:      List[int]:      number of periods into the future over which
+                                VaR is calculated
+    '''
     return {
-        "points": 30,  # 1 mo of data behind to estimate mles
-        "window": 6,  # 1h TWAPs (assuming ovl_sushi ingested every 10m)
-        "period": 600, # 10m periods
-        "alpha": [0.05, 0.01, 0.001, 0.0001], # alpha uncertainty in VaR calc
-        "n": [144, 1008, 2016, 4320],  # number of periods into the future over which VaR is calculated
+        "points": 30,
+        "window": 6,
+        "period": 600,
+        "alpha": [0.05, 0.01, 0.001, 0.0001],
+        "n": [144, 1008, 2016, 4320],
     }
 
 
 def get_quote_path() -> str:
+    '''
+    Returns full path to `quotes.json` file.
+
+    Outputs:
+        [str]:  Full path to `quotes.json` file
+
+    '''
     base = os.path.dirname(os.path.abspath(__file__))
     qp = 'constants/quotes.json'
     return os.path.join(base, qp)
 
 
 def get_quotes() -> tp.List:
+    '''
+    Loads from `scripts/constants/quotes.json` and return a List
+    of quote dicts for quote data fetched from SushiSwap.
+
+    Output:
+        [tp.List[dict]]
+        id         [str]:   Name of swap pair
+        pair       [str]:   Contract address of swap pair
+        token0     [str]:   Contract address of token 0 in swap pair
+        token1     [str]:   Contract address of token 1 in swap pair
+        is_price0  [bool]:  If true, use the TWAP value calculated from the
+                            `priceCumulative0` storage variable:
+                            `price0 = num_token_1 / num_token_0`
+
+                            If false, use the TWAP value calculated from the
+                            `priceCumulative1` storage variable
+        amount_in  [float]:  Swap input amount
+    '''
     quotes = []
     p = get_quote_path()
     with open(p) as f:
@@ -67,26 +132,79 @@ def get_price_fields() -> (str, str):
 
 
 # Fetches historical timeseries of priceCumulatives from influx
-def get_price_cumulatives(query_api, cfg: tp.Dict, q: tp.Dict, p: tp.Dict) -> (int, tp.List[pd.DataFrame]):
+def get_price_cumulatives(
+        query_api,
+        cfg: tp.Dict,
+        q: tp.Dict,
+        p: tp.Dict) -> (int, tp.List[pd.DataFrame]):
+    '''
+    Fetches `priceCumulative` values for the last `params['points']` number of
+    days for id `quote['id']` from the config bucket `source` in `org`.
+
+    Inputs:
+        query_api  [QueryApi]:  InfluxDB client QueryApi instance
+        cfg        [tp.Dict]:   Contains InfluxDB configuration parameters
+          token   [str]:  INFLUXDB_TOKEN env, InfluxDB token
+          org     [str]:  INFLUXDB_ORG env, InfluxDB organization
+          bucket  [str]:  INFLUXDB_BUCKET env, InfluxDB bucket
+          source  [str]:  INFLUXDB_SOURCE env, InfluxDB source bucket
+          url     [str]:  INFLUXDB_URL env, InfluxDB url
+        q          [tp.Dict]:   Quote pair entry fetched from SushiSwap
+          id         [str]:   Name of swap pair
+          pair       [str]:   Contract address of swap pair
+          token0     [str]:   Contract address of token 0 in swap pair
+          token1     [str]:   Contract address of token 1 in swap pair
+          is_price0  [bool]:  If true, use the TWAP value calculated from the
+                              `priceCumulative0` storage variable:
+                              `price0 = num_token_1 / num_token_0`
+
+                              If false, use the TWAP value calculated from the
+                              `priceCumulative1` storage variable
+          amount_in  [float]:  Swap input amount
+        p          [tp.Dict]:  Parameters to use in statistical estimates
+          points  [int]:          1 mo of data behind to estimate mles
+          window  [int]:          1h TWAPs (assuming ovl_sushi ingested every
+                                  10m)
+          period  [int]:          10m periods [s]
+          alpha   List[float]:    alpha uncertainty in VaR calc
+          n:      List[int]:      number of periods into the future over which
+                                  VaR is calculated
+
+    Outputs:
+        [tuple]: Assembled from query
+          timestamp          [int]:               Most recent timestamp of data
+                                                  in `priceCumulative`
+                                                  dataframes
+          priceCumulatives0  [pandas.DataFrame]:
+            _time  [int]:  Unix timestamp
+            _value [int]:  `priceCumulative0` at unix timestamp `_time`
+          priceCumulatives1  [pandas.DataFrame]:
+            _time  [int]:  Unix timestamp
+            _value [int]:  `priceCumulative1` at unix timestamp `_time`
+    '''
     qid = q['id']
-    points = p["points"]
+    points = p['points']
     bucket = cfg['source']
     org = cfg['org']
 
-    print(f"Fetching prices for {qid} ...")
+    print(f'Fetching prices for {qid} ...')
     query = f'''
         from(bucket:"{bucket}") |> range(start: -{points}d)
             |> filter(fn: (r) => r["id"] == "{qid}")
     '''
-    df = query_api.query_data_frame(query=query, org=cfg['org'])
+    df = query_api.query_data_frame(query=query, org=org)
     if type(df) == list:
         df = pd.concat(df, ignore_index=True)
 
     # Filter then separate the df into p0c and p1c dataframes
     df_filtered = df.filter(items=['_time', '_field', '_value'])
     p0c_field, p1c_field = get_price_fields()
-    df_p0c = df_filtered[df_filtered['_field'] == p0c_field].sort_values(by='_time', ignore_index=True)
-    df_p1c = df_filtered[df_filtered['_field'] == p1c_field].sort_values(by='_time', ignore_index=True)
+
+    df_p0c = df_filtered[df_filtered['_field'] == p0c_field]
+    df_p0c = df_p0c.sort_values(by='_time', ignore_index=True)
+
+    df_p1c = df_filtered[df_filtered['_field'] == p1c_field]
+    df_p1c = df_p1c.sort_values(by='_time', ignore_index=True)
 
     # Get the last timestamp
     timestamp = datetime.timestamp(df_p0c['_time'][len(df_p0c['_time'])-1])
@@ -104,13 +222,13 @@ def get_twap(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
 
     dp = pc.filter(items=['_value'])\
         .rolling(window=window)\
-        .apply(lambda w : w[-1] - w[0], raw=True)
+        .apply(lambda w: w[-1] - w[0], raw=True)
 
     # for time, need to map to timestamp first then apply delta
     dt = pc.filter(items=['_time'])\
         .applymap(datetime.timestamp)\
         .rolling(window=window)\
-        .apply(lambda w : w[-1] - w[0], raw=True)
+        .apply(lambda w: w[-1] - w[0], raw=True)
 
     # with NaNs filtered out
     twap_112 = (dp['_value'] / dt['_time']).to_numpy()
@@ -125,24 +243,29 @@ def get_twap(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
     t = pc.filter(items=['_time'])\
         .applymap(datetime.timestamp)\
         .rolling(window=window)\
-        .apply(lambda w : w[-1], raw=True)
+        .apply(lambda w: w[-1], raw=True)
     ts = t['_time'].to_numpy()
     ts = ts[np.logical_not(np.isnan(ts))]
 
     df = pd.DataFrame(data=[ts, window_times, twaps]).T
     df.columns = ['timestamp', 'window', 'twap']
 
-    # filter out any twaps that are less than or equal to 0; TODO: why? injestion from sushi?
+    # filter out any twaps that are less than or equal to 0;
+    # TODO: why? injestion from sushi?
     df = df[df['twap'] > 0]
     return df
 
 
-def get_twaps(pcs: tp.List[pd.DataFrame], q: tp.Dict, p: tp.Dict) -> tp.List[pd.DataFrame]:
-    return [ get_twap(pc, q, p) for pc in pcs ]
+def get_twaps(
+        pcs: tp.List[pd.DataFrame],
+        q: tp.Dict,
+        p: tp.Dict) -> tp.List[pd.DataFrame]:
+    return [get_twap(pc, q, p) for pc in pcs]
 
 
-def get_samples_from_twaps(twaps: tp.List[pd.DataFrame]) -> tp.List[np.ndarray]:
-    return [ twap['twap'].to_numpy() for twap in twaps ]
+def get_samples_from_twaps(
+        twaps: tp.List[pd.DataFrame]) -> tp.List[np.ndarray]:
+    return [twap['twap'].to_numpy() for twap in twaps]
 
 
 # Calcs VaR * d^n normalized for initial imbalance
@@ -157,7 +280,11 @@ def calc_vars(mu: float,
     return np.exp(pow) - 1
 
 
-def get_stat(timestamp: int, sample: np.ndarray, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
+def get_stat(
+        timestamp: int,
+        sample: np.ndarray,
+        q: tp.Dict,
+        p: tp.Dict) -> pd.DataFrame:
     t = p["period"]
 
     # mles
@@ -170,7 +297,7 @@ def get_stat(timestamp: int, sample: np.ndarray, q: tp.Dict, p: tp.Dict) -> pd.D
     # VaRs for 5%, 1%, 0.1%, 0.01% alphas, n periods into the future
     alphas = np.array(p["alpha"])
     ns = np.array(p["n"])
-    vars = [ calc_vars(mu, ss, t, n, alphas) for n in ns ]
+    vars = [calc_vars(mu, ss, t, n, alphas) for n in ns]
     var_labels = [
         f'VaR alpha={alpha} n={n}'
         for n in ns
@@ -184,8 +311,13 @@ def get_stat(timestamp: int, sample: np.ndarray, q: tp.Dict, p: tp.Dict) -> pd.D
     return df
 
 
-def get_stats(timestamp: int, samples: tp.List[np.ndarray], q: tp.Dict, p: tp.Dict) -> tp.List[pd.DataFrame]:
+def get_stats(
+        timestamp: int,
+        samples: tp.List[np.ndarray],
+        q: tp.Dict,
+        p: tp.Dict) -> tp.List[pd.DataFrame]:
     return [get_stat(timestamp, sample, q, p) for sample in samples]
+
 
 def get_token_name(i: int, id: str):
     if i == 0:
@@ -198,7 +330,7 @@ def get_token_name(i: int, id: str):
 
 # SEE: get_params() for more info on setup
 def main():
-    print(f"You are using data from the mainnet network")
+    print("You are using data from the mainnet network")
     config = get_config()
     params = get_params()
     quotes = get_quotes()
@@ -212,7 +344,8 @@ def main():
     for q in quotes:
         print('id', q['id'])
         try:
-            timestamp, pcs = get_price_cumulatives(query_api, config, q, params)
+            timestamp, pcs = get_price_cumulatives(query_api, config, q,
+                                                   params)
             twaps = get_twaps(pcs, q, params)
             print('timestamp', timestamp)
             print('twaps', twaps)
@@ -245,6 +378,7 @@ def main():
             logging.exception(e)
 
     client.close()
+
 
 if __name__ == '__main__':
     main()
