@@ -32,7 +32,7 @@ def get_config() -> tp.Dict:
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
         "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_metrics_dev"),
-        "source": os.getenv('INFLUXDB_SOURCE', "ovl_sushi_dev"),
+        "source": os.getenv('INFLUXDB_SOURCE', "ovl_sushi"),
         "url": os.getenv("INFLUXDB_URL"),
     }
 
@@ -137,12 +137,57 @@ def get_price_cumulatives(
         cfg: tp.Dict,
         q: tp.Dict,
         p: tp.Dict) -> (int, tp.List[pd.DataFrame]):
+    '''
+    Fetches `priceCumulative` values for the last `params['points']` number of
+    days for id `quote['id']` from the config bucket `source` in `org`.
+
+    Inputs:
+        query_api  [QueryApi]:  InfluxDB client QueryApi instance
+        cfg        [tp.Dict]:   Contains InfluxDB configuration parameters
+          token   [str]:  INFLUXDB_TOKEN env, InfluxDB token
+          org     [str]:  INFLUXDB_ORG env, InfluxDB organization
+          bucket  [str]:  INFLUXDB_BUCKET env, InfluxDB bucket
+          source  [str]:  INFLUXDB_SOURCE env, InfluxDB source bucket
+          url     [str]:  INFLUXDB_URL env, InfluxDB url
+        q          [tp.Dict]:   Quote pair entry fetched from SushiSwap
+          id         [str]:   Name of swap pair
+          pair       [str]:   Contract address of swap pair
+          token0     [str]:   Contract address of token 0 in swap pair
+          token1     [str]:   Contract address of token 1 in swap pair
+          is_price0  [bool]:  If true, use the TWAP value calculated from the
+                              `priceCumulative0` storage variable:
+                              `price0 = num_token_1 / num_token_0`
+
+                              If false, use the TWAP value calculated from the
+                              `priceCumulative1` storage variable
+          amount_in  [float]:  Swap input amount
+        p          [tp.Dict]:  Parameters to use in statistical estimates
+          points  [int]:          1 mo of data behind to estimate mles
+          window  [int]:          1h TWAPs (assuming ovl_sushi ingested every
+                                  10m)
+          period  [int]:          10m periods [s]
+          alpha   List[float]:    alpha uncertainty in VaR calc
+          n:      List[int]:      number of periods into the future over which
+                                  VaR is calculated
+
+    Outputs:
+        [tuple]: Assembled from query
+          timestamp          [int]:               Most recent timestamp of data
+                                                  in `priceCumulative`
+                                                  dataframes
+          priceCumulatives0  [pandas.DataFrame]:
+            _time  [int]:  Unix timestamp
+            _value [int]:  `priceCumulative0` at unix timestamp `_time`
+          priceCumulatives1  [pandas.DataFrame]:
+            _time  [int]:  Unix timestamp
+            _value [int]:  `priceCumulative1` at unix timestamp `_time`
+    '''
     qid = q['id']
-    points = p["points"]
+    points = p['points']
     bucket = cfg['source']
     org = cfg['org']
 
-    print(f"Fetching prices for {qid} ...")
+    print(f'Fetching prices for {qid} ...')
     query = f'''
         from(bucket:"{bucket}") |> range(start: -{points}d)
             |> filter(fn: (r) => r["id"] == "{qid}")

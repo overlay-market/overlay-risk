@@ -88,27 +88,28 @@ class TestInfluxMetrics(unittest.TestCase):
             self.assertIsInstance(i['token1'], str)
             self.assertIsInstance(i['amount_in'], float)
 
+    def test_get_price_fields(self):
+        expected = ('price0Cumulative', 'price1Cumulative')
+        actual = imetrics.get_price_fields()
+
+        self.assertEqual(expected, actual)
+
     def test_get_price_cumulatives(self):
-        """
-        get_price_cumulatives(query_api, config, quote, params) should fetch
-        priceCumulative values
-        for the last `params['points']` number of days for id `quote['id']`
-        from config bucket `source` in `org`.
-
-        `query_api` is an InfluxDB client query_api instance.
-
-        Should return tuple (timestamp: int,
-        priceCumulatives0: pandas.DataFrame,
-        priceCumulatives1: pandas.DataFrame)
-        assembled from query where
-          - timestamp: most recent timestamp of data in priceCumulative
-            dataframes
-          - priceCumulatives0: DataFrame with columns ['_time', '_value']
-            where '_value' is priceCumulative0 at unix timestamp '_time'
-          - priceCumulatives1: DataFrame with columns ['_time', '_value'] where
-            '_value' is priceCumulative1 at unix timestamp '_time'
-        """
         pass
+        #  df = pd.DataFrame(columns=['_time', '_field', '_value'])
+        #
+        #  config = imetrics.get_config()
+        #  params = imetrics.get_params()
+        #  client = imetrics.create_client(config)
+        #  query_api = client.query_api()
+        #  quotes = imetrics.get_quotes()
+        #  q = quotes[0]
+        #  timestamp, pcs = imetrics.get_price_cumulatives(query_api, config,
+        #                                                  q, params)
+        #  print('DF', df.columns)
+        #  print('AC', pcs[0].columns)
+        #
+        #  self.assertEqual(df.columns, pcs[0].columns)
 
     def test_compute_amount_out(self):
         """
