@@ -208,8 +208,8 @@ def main():
             data_days = pcs[0]['_time'].max() - pcs[0]['_time'].min() # Calculate difference between max and min date.
             print(f"Number of days between latest and first data point: {data_days}")
 
-            if data_days < timedelta(days = params['points']):
-                print(f"This pair has less than {params['points']} days of data, therefore it is not being ingested to {config['bucket']}")
+            if data_days < timedelta(days = params['points'] - 1):
+                print(f"This pair has less than {params['points']-1} days of data, therefore it is not being ingested to {config['bucket']}")
                 continue # Go to next iteration of loop (ie, next quote) if condition is not satisfied
 
             twaps = get_twaps(pcs, q, params)
