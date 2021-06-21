@@ -7,9 +7,19 @@ from scripts import influx_metrics as imetrics
 import typing as tp
 
 
-class TestInfluxMetricsWithInfluxDB(unittest.TestCase):
+class TestInfluxMetrics(unittest.TestCase):
+
+    def get_expected_price_fields(self) -> (str, str):
+        '''
+        Helper to return expected price fields
+        '''
+        return 'price0Cumulative', 'price1Cumulative'
+
 
     def get_query_df(self) -> pd.DataFrame:
+        '''
+        Helper to return dataframe used to mock out `query_data_frame`
+        '''
         base = os.path.dirname(os.path.abspath(__file__))
         base = os.path.abspath(os.path.join(base, os.pardir))
         base = os.path.join(base, 'helpers/imetrics_query_df.csv')
@@ -22,8 +32,12 @@ class TestInfluxMetricsWithInfluxDB(unittest.TestCase):
         return df
 
     def get_pc_dfs(self, df: pd.DataFrame) -> tp.List[pd.DataFrame]:
+        '''
+        Helper to format dataframe used to mock out `query_data_frame`
+        '''
         df_filtered = df.filter(items=['_time', '_field', '_value'])
         p0c_field, p1c_field = 'price0Cumulative', 'price1Cumulative'
+        p0c_field, p1c_field = self.get_expected_price_fields()
 
         df_p0c = df_filtered[df_filtered['_field'] == p0c_field]
         df_p0c = df_p0c.sort_values(by='_time', ignore_index=True)
@@ -33,35 +47,6 @@ class TestInfluxMetricsWithInfluxDB(unittest.TestCase):
 
         return [df_p0c, df_p1c]
 
-    @mock.patch('influxdb_client.client.query_api.QueryApi.query_data_frame')
-    def test_get_price_cumulatives(self, mock_df):
-        expected_timestamp = 1624136461.0
-        query_df = self.get_query_df()
-        expected_pcs = self.get_pc_dfs(query_df)
-        mock_df.return_value = query_df
-
-        config = {
-            'token': 'INFLUXDB_TOKEN',
-            'org': 'INFLUXDB_ORG',
-            'bucket': 'ovl_metrics_dev',
-            'source': 'ovl_sushi',
-            'url': 'INFLUXDB_URL',
-        }
-
-        client = imetrics.create_client(config)
-        query_api = client.query_api()
-        params = imetrics.get_params()
-        quotes = imetrics.get_quotes()
-        quote = quotes[0]
-
-        actual = imetrics.get_price_cumulatives(query_api, config, quote,
-                                                params)
-        actual_timestamp = actual[0]
-        actual_pcs = actual[1]
-
-        self.assertEqual(expected_timestamp, actual_timestamp)
-        pd_testing.assert_frame_equal(expected_pcs[0], actual_pcs[0])
-        pd_testing.assert_frame_equal(expected_pcs[1], actual_pcs[1])
 
     @mock.patch('scripts.influx_metrics.InfluxDBClient')
     def test_create_client(self, mock_idb_client):
@@ -81,33 +66,20 @@ class TestInfluxMetricsWithInfluxDB(unittest.TestCase):
         self.assertEqual(mock_idb_client.call_count, 1)
 
 
-class TestInfluxMetrics(unittest.TestCase):
-    """
-    get_config() should return a `config` dict containing InfluxDB
-    configuration parameters
-    """
     def test_get_config(self):
+        """
+        Assert `config` dict contains expected InfluxDB config parameter keys
+        """
         expected = {'token', 'org', 'bucket', 'source', 'url'}
         actual = set(imetrics.get_config().keys())
 
         self.assertEqual(expected, actual)
 
-    """
-    create_client() should return an InfluxDBClient initialized with config
-    `url` and `token` params
-    """
-    def test_create_client(self):
-        pass
-
-    """
-    get_params() should return a `params` dict for parameters to use in
-    statistical estimates
-
-    Params dict should have keys
-    { "points": int, "window": int, "period": int, "alpha": List[float],
-    "n": List[int] }
-    """
     def test_get_params(self):
+        """
+        Assert `params` dict contains expected keys used in statistical
+        estimates
+        """
         expected_keys = {"points", "window", "period", "alpha", "n"}
 
         actual = imetrics.get_params()
@@ -129,6 +101,9 @@ class TestInfluxMetrics(unittest.TestCase):
             self.assertIsInstance(i, int)
 
     def test_get_quotes_path(self):
+        '''
+        Assert quote path is correct
+        '''
         base = os.path.dirname(os.path.abspath(__file__))
         base = os.path.abspath(os.path.join(base, os.pardir))
         base = os.path.abspath(os.path.join(base, os.pardir))
@@ -160,27 +135,44 @@ class TestInfluxMetrics(unittest.TestCase):
             self.assertIsInstance(i['amount_in'], float)
 
     def test_get_price_fields(self):
-        expected = ('price0Cumulative', 'price1Cumulative')
+        '''
+        Assert price fields are `('price0Cumulative', 'price1Cumulative')`
+        '''
+        expected = self.get_expected_price_fields()
         actual = imetrics.get_price_fields()
 
         self.assertEqual(expected, actual)
 
-    def test_get_price_cumulatives(self):
-        pass
-        #  df = pd.DataFrame(columns=['_time', '_field', '_value'])
-        #
-        #  config = imetrics.get_config()
-        #  params = imetrics.get_params()
-        #  client = imetrics.create_client(config)
-        #  query_api = client.query_api()
-        #  quotes = imetrics.get_quotes()
-        #  q = quotes[0]
-        #  timestamp, pcs = imetrics.get_price_cumulatives(query_api, config,
-        #                                                  q, params)
-        #  print('DF', df.columns)
-        #  print('AC', pcs[0].columns)
-        #
-        #  self.assertEqual(df.columns, pcs[0].columns)
+    # RR TODO: run for all quotes in `quotes.json`
+    @mock.patch('influxdb_client.client.query_api.QueryApi.query_data_frame')
+    def test_get_price_cumulatives(self, mock_df):
+        expected_timestamp = 1624136461.0
+        query_df = self.get_query_df()
+        expected_pcs = self.get_pc_dfs(query_df)
+        mock_df.return_value = query_df
+
+        config = {
+            'token': 'INFLUXDB_TOKEN',
+            'org': 'INFLUXDB_ORG',
+            'bucket': 'ovl_metrics_dev',
+            'source': 'ovl_sushi',
+            'url': 'INFLUXDB_URL',
+        }
+
+        client = imetrics.create_client(config)
+        query_api = client.query_api()
+        params = imetrics.get_params()
+        quotes = imetrics.get_quotes()
+        quote = quotes[0]
+
+        actual = imetrics.get_price_cumulatives(query_api, config, quote,
+                                                params)
+        actual_timestamp = actual[0]
+        actual_pcs = actual[1]
+
+        self.assertEqual(expected_timestamp, actual_timestamp)
+        pd_testing.assert_frame_equal(expected_pcs[0], actual_pcs[0])
+        pd_testing.assert_frame_equal(expected_pcs[1], actual_pcs[1])
 
     def test_compute_amount_out(self):
         """
