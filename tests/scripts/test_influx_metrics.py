@@ -1,7 +1,84 @@
+import pandas as pd
+import pandas.testing as pd_testing
 import os
 import unittest
+from unittest import mock
 from scripts import influx_metrics as imetrics
 import typing as tp
+
+
+class TestInfluxMetricsWithInfluxDB(unittest.TestCase):
+
+    def get_query_df(self) -> pd.DataFrame:
+        base = os.path.dirname(os.path.abspath(__file__))
+        base = os.path.abspath(os.path.join(base, os.pardir))
+        base = os.path.join(base, 'helpers/imetrics_query_df.csv')
+
+        df = pd.read_csv(base, sep=',')
+        df._start = pd.to_datetime(df._start)
+        df._stop = pd.to_datetime(df._stop)
+        df._time = pd.to_datetime(df._time)
+
+        return df
+
+    def get_pc_dfs(self, df: pd.DataFrame) -> tp.List[pd.DataFrame]:
+        df_filtered = df.filter(items=['_time', '_field', '_value'])
+        p0c_field, p1c_field = 'price0Cumulative', 'price1Cumulative'
+
+        df_p0c = df_filtered[df_filtered['_field'] == p0c_field]
+        df_p0c = df_p0c.sort_values(by='_time', ignore_index=True)
+
+        df_p1c = df_filtered[df_filtered['_field'] == p1c_field]
+        df_p1c = df_p1c.sort_values(by='_time', ignore_index=True)
+
+        return [df_p0c, df_p1c]
+
+    @mock.patch('influxdb_client.client.query_api.QueryApi.query_data_frame')
+    def test_get_price_cumulatives(self, mock_df):
+        expected_timestamp = 1624136461.0
+        query_df = self.get_query_df()
+        expected_pcs = self.get_pc_dfs(query_df)
+        mock_df.return_value = query_df
+
+        config = {
+            'token': 'INFLUXDB_TOKEN',
+            'org': 'INFLUXDB_ORG',
+            'bucket': 'ovl_metrics_dev',
+            'source': 'ovl_sushi',
+            'url': 'INFLUXDB_URL',
+        }
+
+        client = imetrics.create_client(config)
+        query_api = client.query_api()
+        params = imetrics.get_params()
+        quotes = imetrics.get_quotes()
+        quote = quotes[0]
+
+        actual = imetrics.get_price_cumulatives(query_api, config, quote,
+                                                params)
+        actual_timestamp = actual[0]
+        actual_pcs = actual[1]
+
+        self.assertEqual(expected_timestamp, actual_timestamp)
+        pd_testing.assert_frame_equal(expected_pcs[0], actual_pcs[0])
+        pd_testing.assert_frame_equal(expected_pcs[1], actual_pcs[1])
+
+    @mock.patch('scripts.influx_metrics.InfluxDBClient')
+    def test_create_client(self, mock_idb_client):
+        '''
+        Assert that an `InfluxDBClient` is instantiated one time with config
+        dict containing the `url` and `token` key-value pairs
+        '''
+        config = {
+            'token': 'INFLUXDB_TOKEN',
+            'org': 'INFLUXDB_ORG',
+            'bucket': 'ovl_metrics_dev',
+            'source': 'ovl_sushi',
+            'url': 'INFLUXDB_URL',
+        }
+        self.assertEqual(mock_idb_client.call_count, 0)
+        imetrics.create_client(config)
+        self.assertEqual(mock_idb_client.call_count, 1)
 
 
 class TestInfluxMetrics(unittest.TestCase):
