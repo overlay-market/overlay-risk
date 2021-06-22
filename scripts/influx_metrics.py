@@ -5,7 +5,7 @@ import json
 import typing as tp
 import logging
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from scipy.stats import norm
 
 from influxdb_client import InfluxDBClient, Point, WritePrecision
@@ -319,15 +319,6 @@ def get_stats(
     return [get_stat(timestamp, sample, q, p) for sample in samples]
 
 
-def get_token_name(i: int, id: str):
-    if i == 0:
-        token_name = id.split(' / ')[0].split(': ')[1]
-    else:
-        token_name = id.split(' / ')[1]
-
-    return token_name
-
-
 # SEE: get_params() for more info on setup
 def main():
     print("You are using data from the mainnet network")
@@ -346,6 +337,21 @@ def main():
         try:
             timestamp, pcs = get_price_cumulatives(query_api, config, q,
                                                    params)
+            # Calculate difference between max and min date.
+            data_days = pcs[0]['_time'].max() - pcs[0]['_time'].min()
+            print(
+                f"Number of days between latest and first "
+                f"data point: {data_days}"
+            )
+
+            if data_days < timedelta(days=params['points']-1):
+                print(
+                    f"This pair has less than {params['points']-1} days of "
+                    f"data, therefore it is not being ingested "
+                    f"to {config['bucket']}"
+                )
+                continue
+
             twaps = get_twaps(pcs, q, params)
             print('timestamp', timestamp)
             print('twaps', twaps)
@@ -356,7 +362,7 @@ def main():
             print('stats', stats)
 
             for i, stat in enumerate(stats):
-                token_name = get_token_name(i, q['id'])
+                token_name = q[f'token{i}_name']
                 point = Point("mem")\
                     .tag("id", q['id'])\
                     .tag('token_name', token_name)\

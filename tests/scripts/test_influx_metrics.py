@@ -63,11 +63,9 @@ class TestInfluxMetrics(unittest.TestCase):
         self.assertEqual(expected, actual)
 
     def test_get_quotes(self):
-        expected_keys = {'id', 'pair', 'token0', 'token1', 'is_price0',
-                         'amount_in'}
-        # Sushiswap: OVL / WETH dict should NOT contain `is_price0` key
-        expected_keys_no_is_price0 = {'id', 'pair', 'token0', 'token1',
-                                      'amount_in'}
+        expected_keys = {'id', 'pair', 'token0', 'token1', 'token0_name',
+                         'token1_name', 'is_price0', 'amount_in'}
+
         actual = imetrics.get_quotes()
 
         self.assertIsInstance(actual, tp.List)
@@ -75,12 +73,8 @@ class TestInfluxMetrics(unittest.TestCase):
         for i in actual:
             actual_keys = set(i.keys())
 
-            if i['id'] == 'Sushiswap: OVL / WETH':
-                # Sushiswap: OVL / WETH dict should NOT contain `is_price0` key
-                self.assertEqual(expected_keys_no_is_price0, actual_keys)
-            else:
-                self.assertEqual(expected_keys, actual_keys)
-                self.assertIsInstance(i['is_price0'], bool)
+            self.assertEqual(expected_keys, actual_keys)
+            self.assertIsInstance(i['is_price0'], bool)
 
             self.assertIsInstance(i['id'], str)
             self.assertIsInstance(i['pair'], str)

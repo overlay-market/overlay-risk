@@ -5,6 +5,8 @@
             "pair": "0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58",
             "token0": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "WBTC",
+            "token1_name": "WETH",
             "is_price0": false,
             "amount_in": 1e18
         },
@@ -13,6 +15,8 @@
             "pair": "0x397FF1542f962076d0BFE58eA045FfA2d347ACa0",
             "token0": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "USDC",
+            "token1_name": "WETH",
             "is_price0": false,
             "amount_in": 1e18
         },
@@ -21,6 +25,8 @@
             "pair": "0xc3d03e4f041fd4cd388c549ee2a29a9e5075882f",
             "token0": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "DAI",
+            "token1_name": "WETH",
             "is_price0": false,
             "amount_in": 1e18
         },
@@ -29,6 +35,8 @@
             "pair": "0xD75EA151a61d06868E31F8988D28DFE5E9df57B4",
             "token0": "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "AAVE",
+            "token1_name": "WETH",
             "is_price0": true,
             "amount_in": 1e18
         },
@@ -37,6 +45,8 @@
             "pair": "0x795065dCc9f64b5614C407a6EFDC400DA6221FB0",
             "token0": "0x6b3595068778dd592e39a122f4f5a5cf09c90fe2",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "SUSHI",
+            "token1_name": "WETH",
             "is_price0": true,
             "amount_in": 1e18
         },
@@ -45,6 +55,8 @@
             "pair": "0xA1d7b2d891e3A1f9ef4bBC5be20630C2FEB1c470",
             "token0": "0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "SNX",
+            "token1_name": "WETH",
             "is_price0": true,
             "amount_in": 1e18
         },
@@ -53,6 +65,8 @@
             "pair": "0x088ee5007C98a9677165D78dD2109AE4a3D04d0C",
             "token0": "0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "YFI",
+            "token1_name": "WETH",
             "is_price0": true,
             "amount_in": 1e18
         },
@@ -61,6 +75,8 @@
             "pair": "0x31503dcb60119A812feE820bb7042752019F2355",
             "token0": "0xc00e94cb662c3520282e6f5717214004a7f26888",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "COMP",
+            "token1_name": "WETH",
             "is_price0": true,
             "amount_in": 1e18
         },
@@ -69,6 +85,8 @@
             "pair": "0xDafd66636E2561b0284EDdE37e42d192F2844D40",
             "token0": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "UNI",
+            "token1_name": "WETH",
             "is_price0": true,
             "amount_in": 1e18
         },
@@ -77,6 +95,8 @@
             "pair": "0xba13afecda9beb75de5c56bbaf696b880a5a50dd",
             "token0": "0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "MKR",
+            "token1_name": "WETH",
             "is_price0": true,
             "amount_in": 1e18
         },
@@ -85,6 +105,8 @@
             "pair": "0xC40D16476380e4037e6b1A2594cAF6a6cc8Da967",
             "token0": "0x514910771af9ca656af840dff83e8264ecf986ca",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "LINK",
+            "token1_name": "WETH",
             "is_price0": true,
             "amount_in": 1e18
         },
@@ -93,6 +115,8 @@
             "pair": "0x58Dc5a51fE44589BEb22E8CE67720B5BC5378009",
             "token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
             "token1": "0xd533a949740bb3306d119cc777fa900ba034cd52",
+            "token0_name": "WETH",
+            "token1_name": "CRV",
             "is_price0": false,
             "amount_in": 1e18
         },
@@ -101,6 +125,8 @@
             "pair": "0xf55C33D94150d93c2cfb833bcCA30bE388b14964",
             "token0": "0xa1faa113cbe53436df28ff0aee54275c13b40975",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "ALPHA",
+            "token1_name": "WETH",
             "is_price0": true,
             "amount_in": 1e18
         },
@@ -109,6 +135,8 @@
             "pair": "0xC3f279090a47e80990Fe3a9c30d24Cb117EF91a8",
             "token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
             "token1": "0xdbdb4d16eda451d0503b854cf79d55697f90c8df",
+            "token0_name": "WETH",
+            "token1_name": "ALCX",
             "is_price0": false,
             "amount_in": 1e18
         },
@@ -117,6 +145,8 @@
             "pair": "0xcc39592f5cB193a70f262aA301f54DB1d600e6Da",
             "token0": "0x3155ba85d5f96b2d030a4966af206230e46849cb",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "RUNE",
+            "token1_name": "WETH",
             "is_price0": true,
             "amount_in": 1e18
         },
@@ -125,6 +155,9 @@
             "pair": "",
             "token0": "",
             "token1": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token0_name": "OVL",
+            "token1_name": "WETH",
+            "is_price0": true,
             "amount_in": 1e18
         }
     ]
