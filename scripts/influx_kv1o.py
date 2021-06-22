@@ -3,7 +3,6 @@ import numpy as np
 import os
 import json
 import typing as tp
-import logging
 
 from brownie import network, Contract
 from datetime import datetime
@@ -23,7 +22,8 @@ def get_config() -> tp.Dict:
 
 
 def create_client(config: tp.Dict) -> InfluxDBClient:
-    return InfluxDBClient(url=config['url'], token=config['token'], org = config['org'], debug=False)
+    return InfluxDBClient(url=config['url'], token=config['token'],
+                          org=config['org'], debug=False)
 
 
 def get_point_settings() -> PointSettings:
@@ -108,21 +108,22 @@ def get_stats(kv1o, q: tp.Dict, p: tp.Dict) -> (str, pd.DataFrame):
     df.columns = ['timestamp', 'mu', 'sigSqrd', 'VaR 5',
                   'VaR 1', 'VaR 0.1',
                   'VaR 0.01']
-
-    # df['timestamp'] = int(datetime.utcnow().timestamp()) - 19800 # just a simulation. delete this in prod
+    # just a simulation. delete this in prod
+    # df['timestamp'] = int(datetime.utcnow().timestamp()) - 19800
     return pair, df
 
+
 def create_csv(df: pd.DataFrame, q: tp.Dict):
-    
     # Create directory called 'csv' only if it does not exist
     if not os.path.exists('csv'):
         os.makedirs('csv')
 
     # Name the csv file
-    name_quote = q['id'].replace(':', '-').replace(' / ', ' ') # Replace special characters from file names
+    # Replace special characters from file names
+    name_quote = q['id'].replace(':', '-').replace(' / ', ' ')
 
     df.to_csv(
-        f"csv/{name_quote}-{int(datetime.now().timestamp())}.csv", 
+        f"csv/{name_quote}-{int(datetime.now().timestamp())}.csv",
         index=False,
     )
 
@@ -139,7 +140,7 @@ def main():
         write_options=SYNCHRONOUS,
         point_settings=get_point_settings(),
     )
-    
+
     for q in quotes:
         print('id', q['id'])
         try:
@@ -169,6 +170,5 @@ def main():
             Error message = {err_msg}
             '''
             print(msg)
-            
-    client.close()
 
+    client.close()
