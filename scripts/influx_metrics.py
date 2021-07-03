@@ -70,8 +70,8 @@ def get_params() -> tp.Dict:
 
     Outputs:
         [tp.Dict]
-        points  [int]:          1 mo of data behind to estimate mles
-        window  [int]:          1h TWAPs (assuming ovl_sushi ingested every
+        points  [int]:          1 mo of data behind to estimate MLEs
+        window  [int]:          1h TWAPs (assuming `ovl_sushi` ingested every
                                 10m)
         period  [int]:          10m periods [s]
         alpha   List[float]:    alpha uncertainty in VaR calc
@@ -164,7 +164,7 @@ def get_price_cumulatives(
         p          [tp.Dict]:  Parameters to use in statistical estimates
           points  [int]:          1 mo of data behind to estimate mles
           window  [int]:          1h TWAPs (assuming ovl_sushi ingested every
-                                  10m)
+                                  10m) [s]
           period  [int]:          10m periods [s]
           alpha   List[float]:    alpha uncertainty in VaR calc
           n:      List[int]:      number of periods into the future over which
@@ -237,6 +237,7 @@ def get_twap(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
     Calculates the rolling Time Weighted Average Price (TWAP) values for each
     (`_time`, `_value`) row in the `priceCumulatives` dataframe. Rolling TWAP
     values are calculated with a window size of `params['window']`.
+
     Inputs:
       pc  [pf.DataFrame]:  `priceCumulatives`
         _time  [int]:  Unix timestamp
@@ -323,11 +324,30 @@ def get_samples_from_twaps(
 def calc_vars(mu: float,
               sig_sqrd: float,
               t: int,
-              n: int, alphas: np.ndarray) -> np.ndarray:
+              n: int,
+              alphas: np.ndarray) -> np.ndarray:
+    '''
+    Calculates bracketed term:
+        [e**(mu * n * t + sqrt(sig_sqrd * n * t) * Psi^{-1}(1 - alpha))]
+    in Value at Risk (VaR) expressions for each alpha value in the `alphas`
+    numpy array. SEE: https://oips.overlay.market/notes/note-4
+
+    Inputs:
+      mu        [float]:
+      sig_sqrd  [float]:
+      t         [int]:
+      n         [int]:
+      alphas    [np.ndarray]:
+
+    Outputs:
+      [np.ndarray]:  Array of calculated values for each `alpha`
+
+    '''
     sig = np.sqrt(sig_sqrd)
-    q = 1-alphas
-    pow = mu*n*t + sig*np.sqrt(n*t)*norm.ppf(q)
-    return np.exp(pow) - 1
+    q = 1 - alphas
+    pow = mu * n * t + sig * np.sqrt(n * t) * norm.ppf(q)
+    nn = np.exp(pow) - 1
+    return nn
 
 
 def get_stat(
