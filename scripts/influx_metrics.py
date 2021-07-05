@@ -31,7 +31,7 @@ def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
-        "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_metrics_dev"),
+        "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_metrics"),
         "source": os.getenv('INFLUXDB_SOURCE', "ovl_sushi"),
         "url": os.getenv("INFLUXDB_URL"),
     }
