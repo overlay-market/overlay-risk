@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import argparse
 import typing as tp
 import logging
 
@@ -11,7 +12,6 @@ def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
-        "source": os.getenv('INFLUXDB_SOURCE', "ovl_sushi"),
         "url": os.getenv("INFLUXDB_URL"),
     }
 
@@ -22,17 +22,39 @@ def create_client(config: tp.Dict) -> InfluxDBClient:
 
 
 def get_params() -> tp.Dict:
+    points = 30  # Default to 30d in past for influx start range
+    source = "ovl_sushi"  # Default to ovl_sushi InfluxDB bucket
+
+    parser = argparse.ArgumentParser(
+        description='Fetch data from InfluxDB bucket and save to local csv'
+    )
+    parser.add_argument(
+        '--bucket', type=str,
+        help='name of the influx bucket to query'
+    )
+    parser.add_argument(
+        '--points', type=int,
+        help='number of days in the past to use as start range of influx query'
+    )
+
+    args = parser.parse_args()
+    if args.points:
+        points = args.points
+    if args.bucket:
+        source = args.bucket
+
     return {
-        "points": 30,
+        "points": points,
+        "source": source
     }
 
 
 def get_data(query_api, cfg: tp.Dict, p: tp.Dict) -> pd.DataFrame:
     points = p['points']
-    bucket = cfg['source']
+    bucket = p['source']
     org = cfg['org']
 
-    print(f'Fetching data from {bucket} ...')
+    print(f'Fetching data from {bucket} for the last {points} days ...')
     query = f'''
         from(bucket:"{bucket}") |> range(start: -{points}d)
     '''
@@ -65,3 +87,7 @@ def main():
         logging.exception(e)
 
     client.close()
+
+
+if __name__ == '__main__':
+    main()
