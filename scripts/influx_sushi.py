@@ -39,7 +39,7 @@ def PAIR(addr: str) -> Contract:
 
 def get_quote_path() -> str:
     base = os.path.dirname(os.path.abspath(__file__))
-    qp = 'constants/quotes.json'
+    qp = 'constants/sushi_quotes.json'
     return os.path.join(base, qp)
 
 
