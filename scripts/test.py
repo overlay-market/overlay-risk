@@ -3,7 +3,7 @@ from multiprocessing import Pool
 def get_tick_sets ():
     return [ [x] for x in range(100) ]
 
-async def read_tick_set (set):
+def read_tick_set (set):
     return [0,set]
     
 def main():
@@ -19,9 +19,11 @@ def main():
 
     tick_sets.wait()
 
-
     p.close()
     p.join()
 
     vals = tick_sets.get()
     print(vals)
+
+if __name__ == '__main__':
+    main()
