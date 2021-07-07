@@ -6,6 +6,9 @@ import typing as tp
 import logging
 import time
 import math
+import asyncio
+
+from multiprocessing import Pool
 
 from brownie import chain, network, Contract
 from datetime import datetime
@@ -69,108 +72,245 @@ def get_prices(q: tp.Dict) -> pd.DataFrame:
     df.columns = ['timestamp', 'price0Cumulative', 'price1Cumulative']
     return df
 
-def read_ticks_and_liquidity(pool, snapshots, block):
+async def get_b_by_timestamp (b_upper: int, b_lower: int, t_target: int) -> int:
 
-    i = 0
-    while True:
-        if (i == 10): break
-        slot0 = pool.slot0(block_identifier=block)
-        liquidity = pool.liquidity(block_identifier=block)
+    t_upper = chain[b_upper].timestamp
+    t_lower = chain[b_lower].timestamp
 
-        snapshots.append({
-            block: {
-                'tick': slot0[1],
-                'liqudity': liquidity
-            }
-        })
+    t_diff_upper = t_upper - t_target
+    t_diff_lower = t_target - t_lower 
 
-        block = get_block_by_timestamp(block, chain[block].timstamp - 600)
-        i += i
+    # print("t diff upper " + str(t_diff_upper))
+    # print("t diff lower " + str(t_diff_lower))
+
+    if abs(t_diff_upper) < 100 or abs(t_diff_lower) < 100:
+        if t_diff_upper < t_diff_lower and t_diff_upper > 0:
+            for i in range(100):
+                if t_target > chain[b_upper - i].timestamp: 
+                    print("0 a")
+                    return b_upper - i
+        elif t_diff_upper < t_diff_lower and t_diff_upper < 0:
+            for i in range(100):
+                if t_target < chain[b_upper + i].timestamp:
+                    print("0 b")
+                    return b_upper + i - 1
+        elif t_diff_lower < 0:
+            for i in range(100):
+                if t_target < chain[b_lower - i].timestamp:
+                    print("0 c")
+                    return b_upper - i 
+        else:
+            for i in range(100):
+                if t_target < chain[b_lower + i].timestamp:
+                    print("0 d")
+                    return b_lower + i - 1
 
 
-    slot0 = pool.slot0(block_identifier=block)
+    if t_upper == t_target: print("TERMINATING upper"); return b_upper
+    if t_lower == t_target: print("TERMINATING lower"); return b_lower
 
-    block = get_block_by_timestamp
+    t_diff = t_upper - t_lower
+    b_diff = b_upper - b_lower
 
-def read_observations(pool, time_from):
+    b_time = math.floor( t_diff / b_diff )
 
-    try:
+    # print("~~~~ target " + str(t_target))
+    # print("  block \n    diff: " + str(b_diff) 
+    #     + "\n    upper: " + str(b_upper) 
+    #     + "\n    lower: " + str(b_lower)
+    #     + "\n    time: " + str(b_time))
+    # print("  time  \n    diff: " + str(t_diff) 
+    #     + "\n    upper: " + str(t_upper)
+    #     + "\n    lower: " + str(t_lower)
+    #     + "\n    diff target upper: " + str(t_upper - t_target) 
+    #     + "\n    diff target lower: " + str(t_target - t_lower))
 
-        block = get_block_by_timestamp(len(chain) - 1, 1, time_from)
+    if b_upper - b_lower <= 1: 
+        # print("3")
+        i = 0
+        if t_target > t_upper: 
+            while True:
+                if t_target < chain[b_upper + i].timestamp: return b_upper + i - 1
+                i += 1
+        elif t_target < t_lower: 
+            # print("ZING")
+            while True:
+                print(chain[b_lower - i].timestamp)
+                if t_target > chain[b_lower - i].timestamp: return b_lower - i 
+                i = i + 1
+        else: return b_lower if abs(t_target - t_lower) < abs(t_upper - t_target) else b_upper
 
-        slot0 = pool.slot0(block_identifier=block)
+    if t_target > t_upper:
+        t_delta = t_target - t_upper
+        b_delta = math.ceil( t_delta / b_time )
+        # print("~@~@~ t_delta: " + str(t_delta))
+        # print("~@~@~ b_delta: " + str(b_delta))
+        # print("1")
+        return await get_b_by_timestamp(b_upper + b_delta, b_upper, t_target)
 
-        index = slot0[2]
-        cardinality = slot0[3]
+    if t_target < t_lower:
+        t_delta = t_lower - t_target
+        b_delta = math.floor( t_delta / b_time )
+        # print("2")
+        return await get_b_by_timestamp(b_lower, b_lower - b_delta, t_target)
 
-        new_observations = []
 
-        for i in range(cardinality):
-            i = ( index + i + 1 ) % cardinality
-            observation = pool.observations(i, block_identifier=block)
-            new_observations.append(observation)
+    # print("time target         " + str(t_target))
+    # print("block delta         " + str(b_delta))
+    # print("time delta          " + str(t_delta))
+    # print("block time          " + str(b_time))
 
-        new_observations.reverse()
+    t_delta_upper = t_upper - t_target
+    t_delta_lower = t_target - t_lower
 
-        time_from = new_observations[len(new_observations) - 1][0]
-
-        new_obs_df = pd.DataFrame(
-            new_observations, 
-            columns = [ 'timestamp', 'tick', 'secondsPerLiquidity', 'initialized' ]
-        )
-
-        return time_from, new_obs_df
-
-    except Exception as e:
-        raise(e)
-
-def get_block_by_timestamp (block_upper: int, block_lower: int, time_target: int) -> int:
-
-    if block_upper == block_lower: return block_upper
-
-    time_upper = chain[block_upper].timestamp
-    if time_upper == time_target: return block_upper
-
-    time_lower = chain[block_lower].timestamp
-    if time_lower == time_target: return block_lower
-
-    block_time = math.ceil( (time_upper-time_lower) / (block_upper-block_lower) )
-
-    block_approx = math.ceil( block_upper - ( (time_upper-time_target) / block_time ))
-    
-    time_approx_actual = chain[block_approx].timestamp
-
-    time_delta = time_approx_actual - time_target
-    block_delta = math.ceil( time_delta / block_time )
-
-    if time_delta > 0:
-        return get_block_by_timestamp(block_approx, block_approx - block_delta, time_target)
+    if t_delta_upper < t_delta_lower:
+        b_delta = t_delta_upper / b_time
+        b_approx = math.floor( b_upper - b_delta )
+        t_approx = chain[b_approx].timestamp
     else:
-        return get_block_by_timestamp(block_approx + block_delta, block_approx, time_target)
+        b_delta = t_delta_lower / b_time
+        b_approx = math.ceil( b_lower + b_delta )
+        t_approx = chain[b_approx].timestamp
+
+    t_delta = t_approx - t_target 
+
+    if t_delta == 0: return b_approx
+
+    b_t_approx = abs(t_delta) / b_delta
+
+    # print("b delta " + str(b_delta))
+    # print("t delta " + str(t_delta))
+
+    b_guess = b_approx + int( t_delta / b_t_approx )
+
+    # print("~#~#~ t_delta   " + str(t_delta))
+    # print("~#~#~ bt_approx " + str(b_t_approx))
+    # print("~#~#~ b_approx  " + str(b_approx))
+    # print("~#~#~ b_guess   " + str(b_guess))
+
+    if b_guess == b_approx: print("4"); return await get_b_by_timestamp(b_guess, b_guess - 1, t_target)
+    elif b_guess > b_approx: print("5"); return await get_b_by_timestamp(b_guess, b_approx, t_target)
+    else: print("6"); return await get_b_by_timestamp(b_approx, b_guess, t_target)
+
+    # b_delta = abs(math.ceil( ( t_delta / b_time )))
+
+    # print("b_upper - b_lower    " + str(b_diff) + " (" + str(b_upper) + " - " + str(b_lower) + ")")
+    # print("t_upper - t_lower    " + str(t_diff) + " (" + str(t_upper) + " - " + str(t_lower) + ")")
+    # print("b_time               " + str(b_time) + " (" + str(b_diff) + "/" + str(t_diff) + ")")
+    # print("b_t_approx        " + str(b_t_approx) + " (" + str(t_delta) + "/" + str(b_upper - b_approx) + ")")
+    # print("b_guess              " + str(b_guess))
+    # print("b_approx             " + str(b_approx))
+    # print("t_delta              " + str(t_delta))
+    # print("b_time          " + str(b_time))
+    # print("b_approx         " + str(b_approx))
+    # print("t_approx          " + str(t_approx))
+    # print("t_delta          " + str(t_delta))
+
+    # print("time approx                 " + str(t_approx))
+    # print("time target - time approx   " + str(t_target - t_approx))
+    # print("time delta / block time     " + str(t_delta / b_time))
+    # print("block time                  " + str(b_time) 
+    #     + "     ----> t_upper (" + str(t_upper) + ") - t_lower (" + str(t_lower) + ") --> " + str(t_upper - t_lower) 
+    #     + " / " + str(b_upper-b_lower) + " b_upper (" + str(b_upper) + ") - b_lower (" + str(b_lower) + ")" )
+    # print("block approx                " + str(b_approx))
+
+
+
+    if t_delta > 0:
+        return await get_b_by_timestamp(b_approx, b_approx - b_delta, t_target)
+    else:
+        return await get_b_by_timestamp(b_approx + b_delta, b_approx, t_target)
+
+    if t_delta > 0:
+        print("ping")
+        return await get_b_by_timestamp(b_approx, b_approx - b_delta, t_target)
+    else:
+        print("zing")
+        return await get_b_by_timestamp(b_approx + b_delta, b_approx, t_target)
+
+def get_tick_sets(pool: Contract, b_upper: int, b_lower: int, period: int) -> tp.List:
+
+    t_upper = chain[b_upper].timestamp
+    t_lower = chain[b_lower].timestamp
+
+    time = t_upper
+    calls = list([])
+
+    while t_lower < time:
+        calls.append( [pool, b_upper, b_lower, time] ) 
+        time -= period
+
+    return calls
+    # tick_sets = await asyncio.gather(calls)
+
+    # return tick_sets
+
+def four (a,b,c,d):
+    print(a,b,c,d)
+
+async def read_tick_set(pool: Contract, b_upper: int, b_lower: int, t_at: int) -> tp.List:
+
+    print("read tick set", pool, b_upper, b_lower, t_at)
+    ticks = [ 0, 0 ]
+
+    # try:
+    #     block = await get_b_by_timestamp(b_upper, b_lower, t_at)
+    # except RecursionError as re:
+    #     raise Exception("RECURSION ERROR WITH " + str(b_upper) + " " + str(b_lower) + " " + str(t_at))
+    # except ZeroDivisionError as ze:
+    #     print("ZE!!!!!!!")
+    #     raise Exception("ZERO DIVISON WITH " + str(b_upper) + " " + str(b_lower) + " " + str(t_at) )
+    # try:
+    #     ticks = pool.observe([0, t_at], b_identifier=block)
+    # except Exception as e:
+    #     ticks = [ 0, 0 ] 
+
+    return ticks
+
+async def f ():
+    # block = await get_b_by_timestamp(12776692, 12369854, 1625481694)
+    # block = await get_b_by_timestamp(12777308, 12369854, 1625617252)
+    # block = await get_b_by_timestamp(12777667, 12369854, 1625615769)
+    # block = await get_b_by_timestamp(12781006, 12369854, 1625661961)
+    # block = await get_b_by_timestamp(12781516, 12369854, 1625665544)
+    block = await get_b_by_timestamp(12781964, 12369854, 1625631408)
+
+    print("BLOCK! " + str(block))
+    print("time " + str(chain[block].timestamp))
+
+def initf(a): 
+    print("init " + str(a))
 
 def main():
 
     print(f"You are using the '{network.show_active()}' network")
 
     config = get_config()
-    client = create_client(config)
+    # client = create_client(config)
 
     quotes = get_quotes()
-    pool = POOL(quotes[0]['pair'])
-    
-    try:
-        obs_df = pd.read_csv('observations.csv', index_col=0)
-        time_from = obs_df.iloc[-1]['timestamp']
-    except Exception as e:
-        obs_df = pd.DataFrame([])
-        time_from = chain[len(chain) - 1].timestamp
+    pair = POOL(quotes[0]['pair'])
 
+    p = Pool(processes=15)
+    calls = get_tick_sets(pair, len(chain) - 1, len(chain) - 2, 60)
 
-    while True:
+    print(calls)
 
-        try:
-            time_from, new_obs_df = read_observations(pool, time_from)
-            obs_df = obs_df.append(new_obs_df, ignore_index=True)
-            obs_df.to_csv('observations.csv')
-        except Exception as e:
-            print(e)
+    tick_sets = p.starmap_async(read_tick_set, calls)
+
+    # tick_sets.wait()
+    # vals = tick_sets.get()
+
+    # print("tick sets ", vals)
+    # print("ready ", tick_sets.ready())
+    # print("successful ", tick_sets.successful())
+    # p.close()
+    # p.join()
+
+    # print("tick sets \/ \/ \/")
+    # print(tick_sets)
+
+    # asyncio.run(f())
+
+    print(os.cpu_count())
+
