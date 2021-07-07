@@ -16,7 +16,6 @@ from datetime import datetime
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
 
-
 def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
@@ -72,7 +71,7 @@ def get_prices(q: tp.Dict) -> pd.DataFrame:
     df.columns = ['timestamp', 'price0Cumulative', 'price1Cumulative']
     return df
 
-async def get_b_by_timestamp (b_upper: int, b_lower: int, t_target: int) -> int:
+def get_b_by_timestamp (b_upper: int, b_lower: int, t_target: int) -> int:
 
     t_upper = chain[b_upper].timestamp
     t_lower = chain[b_lower].timestamp
@@ -146,13 +145,13 @@ async def get_b_by_timestamp (b_upper: int, b_lower: int, t_target: int) -> int:
         # print("~@~@~ t_delta: " + str(t_delta))
         # print("~@~@~ b_delta: " + str(b_delta))
         # print("1")
-        return await get_b_by_timestamp(b_upper + b_delta, b_upper, t_target)
+        return get_b_by_timestamp(b_upper + b_delta, b_upper, t_target)
 
     if t_target < t_lower:
         t_delta = t_lower - t_target
         b_delta = math.floor( t_delta / b_time )
         # print("2")
-        return await get_b_by_timestamp(b_lower, b_lower - b_delta, t_target)
+        return get_b_by_timestamp(b_lower, b_lower - b_delta, t_target)
 
 
     # print("time target         " + str(t_target))
@@ -188,9 +187,9 @@ async def get_b_by_timestamp (b_upper: int, b_lower: int, t_target: int) -> int:
     # print("~#~#~ b_approx  " + str(b_approx))
     # print("~#~#~ b_guess   " + str(b_guess))
 
-    if b_guess == b_approx: print("4"); return await get_b_by_timestamp(b_guess, b_guess - 1, t_target)
-    elif b_guess > b_approx: print("5"); return await get_b_by_timestamp(b_guess, b_approx, t_target)
-    else: print("6"); return await get_b_by_timestamp(b_approx, b_guess, t_target)
+    if b_guess == b_approx: print("4"); return get_b_by_timestamp(b_guess, b_guess - 1, t_target)
+    elif b_guess > b_approx: print("5"); return get_b_by_timestamp(b_guess, b_approx, t_target)
+    else: print("6"); return get_b_by_timestamp(b_approx, b_guess, t_target)
 
     # b_delta = abs(math.ceil( ( t_delta / b_time )))
 
@@ -217,18 +216,16 @@ async def get_b_by_timestamp (b_upper: int, b_lower: int, t_target: int) -> int:
 
 
     if t_delta > 0:
-        return await get_b_by_timestamp(b_approx, b_approx - b_delta, t_target)
+        return get_b_by_timestamp(b_approx, b_approx - b_delta, t_target)
     else:
-        return await get_b_by_timestamp(b_approx + b_delta, b_approx, t_target)
+        return get_b_by_timestamp(b_approx + b_delta, b_approx, t_target)
 
     if t_delta > 0:
-        print("ping")
-        return await get_b_by_timestamp(b_approx, b_approx - b_delta, t_target)
+        return get_b_by_timestamp(b_approx, b_approx - b_delta, t_target)
     else:
-        print("zing")
-        return await get_b_by_timestamp(b_approx + b_delta, b_approx, t_target)
+        return get_b_by_timestamp(b_approx + b_delta, b_approx, t_target)
 
-def get_tick_sets(pool: Contract, b_upper: int, b_lower: int, period: int) -> tp.List:
+def get_tick_sets(pool: any, b_upper: int, b_lower: int, period: int) -> tp.List:
 
     t_upper = chain[b_upper].timestamp
     t_lower = chain[b_lower].timestamp
@@ -238,42 +235,42 @@ def get_tick_sets(pool: Contract, b_upper: int, b_lower: int, period: int) -> tp
 
     while t_lower < time:
         calls.append( [pool, b_upper, b_lower, time] ) 
+        # calls.append( [b_upper, b_lower, time] ) 
         time -= period
 
+    # return []
     return calls
-    # tick_sets = await asyncio.gather(calls)
 
-    # return tick_sets
-
+# 
 def four (a,b,c,d):
     print(a,b,c,d)
 
-async def read_tick_set(pool: Contract, b_upper: int, b_lower: int, t_at: int) -> tp.List:
+def read_tick_set(pool: any, b_upper: int, b_lower: int, t_at: int) -> tp.List:
 
     print("read tick set", pool, b_upper, b_lower, t_at)
-    ticks = [ 0, 0 ]
+    # ticks = [ 0, 0 ]
 
-    # try:
-    #     block = await get_b_by_timestamp(b_upper, b_lower, t_at)
-    # except RecursionError as re:
-    #     raise Exception("RECURSION ERROR WITH " + str(b_upper) + " " + str(b_lower) + " " + str(t_at))
-    # except ZeroDivisionError as ze:
-    #     print("ZE!!!!!!!")
-    #     raise Exception("ZERO DIVISON WITH " + str(b_upper) + " " + str(b_lower) + " " + str(t_at) )
-    # try:
-    #     ticks = pool.observe([0, t_at], b_identifier=block)
-    # except Exception as e:
-    #     ticks = [ 0, 0 ] 
+    try:
+        block = get_b_by_timestamp(b_upper, b_lower, t_at)
+    except RecursionError as re:
+        raise Exception("RECURSION ERROR WITH " + str(b_upper) + " " + str(b_lower) + " " + str(t_at))
+    except ZeroDivisionError as ze:
+        print("ZE!!!!!!!")
+        raise Exception("ZERO DIVISON WITH " + str(b_upper) + " " + str(b_lower) + " " + str(t_at) )
+    try:
+        ticks = pool([0, t_at], b_identifier=block)
+    except Exception as e:
+        ticks = [ 0, 0 ] 
 
     return ticks
 
-async def f ():
-    # block = await get_b_by_timestamp(12776692, 12369854, 1625481694)
-    # block = await get_b_by_timestamp(12777308, 12369854, 1625617252)
-    # block = await get_b_by_timestamp(12777667, 12369854, 1625615769)
-    # block = await get_b_by_timestamp(12781006, 12369854, 1625661961)
-    # block = await get_b_by_timestamp(12781516, 12369854, 1625665544)
-    block = await get_b_by_timestamp(12781964, 12369854, 1625631408)
+def f ():
+    # block = get_b_by_timestamp(12776692, 12369854, 1625481694)
+    # block = get_b_by_timestamp(12777308, 12369854, 1625617252)
+    # block = get_b_by_timestamp(12777667, 12369854, 1625615769)
+    # block = get_b_by_timestamp(12781006, 12369854, 1625661961)
+    # block = get_b_by_timestamp(12781516, 12369854, 1625665544)
+    block = get_b_by_timestamp(12781964, 12369854, 1625631408)
 
     print("BLOCK! " + str(block))
     print("time " + str(chain[block].timestamp))
@@ -282,6 +279,7 @@ def initf(a):
     print("init " + str(a))
 
 def main():
+    global pair
 
     print(f"You are using the '{network.show_active()}' network")
 
@@ -291,24 +289,33 @@ def main():
     quotes = get_quotes()
     pair = POOL(quotes[0]['pair'])
 
+    print(type(pair.observe))
+
     p = Pool(processes=15)
-    calls = get_tick_sets(pair, len(chain) - 1, len(chain) - 2, 60)
+    calls = get_tick_sets(pair.observe, len(chain) - 1, len(chain) - 2, 60)
 
     print(calls)
 
-    tick_sets = p.starmap_async(read_tick_set, calls)
+    tick_sets = p.starmap(read_tick_set, calls)
 
-    # tick_sets.wait()
-    # vals = tick_sets.get()
+    print("before wait")
+
+    tick_sets.wait()
+    print("before close")
+    p.close()
+    print("before join")
+    p.join()
+    print("before get")
+    vals = tick_sets.get()
+
+    print("vals", vals)
 
     # print("tick sets ", vals)
     # print("ready ", tick_sets.ready())
     # print("successful ", tick_sets.successful())
-    # p.close()
-    # p.join()
 
     # print("tick sets \/ \/ \/")
-    # print(tick_sets)
+    # print(tick_sets
 
     # asyncio.run(f())
 
