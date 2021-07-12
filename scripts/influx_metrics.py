@@ -520,10 +520,6 @@ def main():
 
             data_days = pcs[0]['_time'].max() - pcs[0]['_time'].min()
 
-            print("timestamp ", timestamp)
-            print("pcs", type(pcs))
-            print("data days", data_days)
-
             twaps = get_twaps_uni(pcs, q, params)
 
             print(twaps)
@@ -599,7 +595,3 @@ def zmain():
             logging.exception(e)
 
     client.close()
-
-
-if __name__ == '__main__':
-    unimain()

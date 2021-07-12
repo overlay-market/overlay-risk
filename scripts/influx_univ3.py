@@ -10,6 +10,7 @@ import asyncio
 import brownie
 import sys
 import requests
+import datetime
 
 from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor 
@@ -58,9 +59,9 @@ def get_point_settings() -> PointSettings:
     point_settings.add_default_tag("influx-univ3-james", "ingest-data-frame")
     return point_settings
 
-def POOL(addr: str) -> Contract:
+def POOL(addr: str, abi) -> Contract:
     # UniswapV3Pool contract
-    return Contract.from_explorer(addr)
+    return Contract.from_abi("unipool", addr, abi)
 
 def get_quote_path() -> str:
     base = os.path.dirname(os.path.abspath(__file__))
@@ -74,6 +75,15 @@ def get_quotes() -> tp.List:
         data = json.load(f)
         quotes = data.get('quotes', [])
     return quotes
+
+def get_uni_abi_path () -> str:
+    base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, 'constants/univ3.abi.json')
+
+def get_uni_abi () -> tp.Dict:
+    with open(get_uni_abi_path()) as f:
+        data = json.load(f)
+    return data
 
 
 def get_b_t (timestamp: int) -> tp.Tuple:
@@ -107,28 +117,95 @@ def read_tick_set( args: tp.Tuple ) -> tp.Tuple:
 
     return ( b_t, ticks_cum, liqs_cum ) 
 
+def find_start(api, quote, config) -> int:
+
+    r = api.query_data_frame(org=config['org'], query=f'''
+        from(bucket:"{config['bucket']}") 
+            |> range(start:0, stop: now())
+            |> filter(fn: (r) => r["id"] == "{quote['id']}")
+            |> last()
+    ''')
+
+    if (len(r.index) > 0):
+        return math.floor(datetime.timestamp(
+            r.iloc[0]['_time'] ))
+    else:
+        return quote['time_deployed']
+
+def index_pair(args: tp.Tuple):
+
+    ( write_api, quote, calls, config ) = args
+
+    print("indexing")
+
+    columns = ['timestamp', 'tick_cumulatives', 'liquidity_per_second_cumulatives']
+
+    with ThreadPoolExecutor() as executor:
+        for i in executor.map(read_tick_set, calls):
+            print(i)
+            i_df = pd.DataFrame([i], columns=columns)
+            try:
+                point = Point("mem")\
+                    .tag("id", quote['id'])\
+                    .tag("token0_name", quote['token0_name'])\
+                    .tag("token1_name", quote['token1_name'])\
+                    .time(
+                        datetime.utcfromtimestamp(float(i[0])),
+                        WritePrecision.NS
+                    )
+                
+                point = point.field('tickCumulative', float(i[1][0]))
+                point = point.field('tickCumulativeMinusPeriod', float(i[1][1]))
+
+                write_api.write(config['bucket'], config['org'], point)
+                print("written")
+            except Exception as e:
+                raise e
+
 def main():
     print(f"You are using the '{network.show_active()}' network")
     config = get_config()
     quotes = get_quotes()
     client = create_client(config)
+    q_api = client.query_api()
     write_api = client.write_api(
         write_options=SYNCHRONOUS,
         point_settings=get_point_settings()
     )
 
-    pair = POOL(quotes[0]['pair'])
+    abi = get_uni_abi()
+    print(type(abi))
 
-    t_c = math.floor(time.time()) - 600
+    index_pair_calls = []
 
-    calls = get_calls(pair, t_c, t_c - 43200, 600)
+    for q in quotes:
+        # print(q)
+        pool = POOL(q['pair'], abi)
+        t_cur = math.floor(time.time())
+        t_strt = find_start(q_api, q, config)
+        index_pair_calls.append( 
+            ( write_api, q, get_calls(pool, t_cur, t_strt, 600) , config ) 
+        )
 
-    columns = ['timestamp', 'tick_cumulatives', 'liquidity_per_second_cumulatives']
+    print(len(index_pair_calls))
 
-    p_df = pd.DataFrame(columns=columns)
     with ThreadPoolExecutor() as executor:
-        for i in executor.map(read_tick_set, calls):
-            print(i)
+        print("hello")
+        for i in executor.map(index_pair, index_pair_calls):
+            print("i", i)
+
+    client.close()
+
+    # pool = POOL(quotes[0]['pair'], abi)
+    # t_c = math.floor(time.time()) - 600
+    # t_s = find_start(q_api, quotes[0], config)
+    # calls = get_calls(pool, t_c, t_s, 600)
+    # columns = ['timestamp', 'tick_cumulatives', 'liquidity_per_second_cumulatives']
+
+    # p_df = pd.DataFrame(columns=columns)
+    # with ThreadPoolExecutor() as executor:
+    #     for i in executor.map(read_tick_set, calls):
+    #         print(i)
     #         i_df = pd.DataFrame([i], columns=columns)
 
     #         try:
