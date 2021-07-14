@@ -13,7 +13,7 @@
             "token1_name": "WETH"
         },
         {
-            "id": "UniswapV: WETH / USDC .3%",
+            "id": "UniswapV3: WETH / USDC .3%",
             "amount_in": 1e18,
             "block_deployed": 12370624,
             "time_deployed": 1620169800,
@@ -25,7 +25,7 @@
             "token1_name": "WETH"
         },
         {
-            "id": "UniswapV: WETH / WBTC .3%",
+            "id": "UniswapV3: WETH / WBTC .3%",
             "amount_in": 1e18,
             "block_deployed": 12369821,
             "time_deployed": 1620158974,
@@ -37,7 +37,7 @@
             "token1_name": "WETH"
         },
         {
-            "id": "UniswapV: WETH / COMP .3%",
+            "id": "UniswapV3: WETH / COMP .3%",
             "amount_in": 1e18,
             "block_deployed": 12370351,
             "time_deployed": 1620165723,
@@ -49,7 +49,7 @@
             "token1_name": "WETH"
         },
         {
-            "id": "UniswapV: WETH / MKR .3%",
+            "id": "UniswapV3: WETH / MKR .3%",
             "amount_in": 1e18,
             "block_deployed": 12371099,
             "time_deployed": 1620175942,
@@ -61,7 +61,7 @@
             "token1_name": "WETH"
         },
         {
-            "id": "UniswapV: WETH / LINK .3%",
+            "id": "UniswapV3: WETH / LINK .3%",
             "amount_in": 1e18,
             "block_deployed": 12375680,
             "time_deployed": 1620237038,
@@ -73,7 +73,7 @@
             "token1_name": "WETH"
         },
         {
-            "id": "UniswapV: WETH / UNI .3%",
+            "id": "UniswapV3: WETH / UNI .3%",
             "amount_in": 1e18,
             "block_deployed": 12369739,
             "time_deployed": 1620157956,

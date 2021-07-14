@@ -97,7 +97,7 @@ def get_quote_path() -> str:
 
     '''
     base = os.path.dirname(os.path.abspath(__file__))
-    qp = 'constants/univ3_quotes.json'
+    qp = 'constants/univ3_quotes_1.json'
     return os.path.join(base, qp)
 
 
@@ -193,7 +193,8 @@ def get_price_cumulatives(
 
     print(f'Fetching prices for {qid} ...')
     query = f'''
-        from(bucket:"{bucket}") |> range(start: -{points}d)
+        from(bucket:"{bucket}") 
+            |> range(start: -{points}d)
             |> filter(fn: (r) => r["id"] == "{qid}")
     '''
 
@@ -233,11 +234,11 @@ def get_price_cumulatives_uni(
 
     print(f'Fetching prices for {qid} ...')
     query = f'''
-        from(bucket:"{bucket}") |> range(start: -{points}d)
+        from(bucket:"{bucket}") 
+            |> range(start: -{90}d)
             |> filter(fn: (r) => r["id"] == "{qid}")
     '''
 
-    print("query ", query)
     df = query_api.query_data_frame(query=query, org=org)
 
     print(df)
@@ -246,22 +247,28 @@ def get_price_cumulatives_uni(
 
     # Filter then separate the df into p0c and p1c dataframes
     df_filtered = df.filter(items=['_time', '_field', '_value'])
-    p0c_field, p1c_field = get_price_fields_uni()
+    print("ZZZZZ")
+    print("ZZZZZ")
+    print("ZZZZZ")
+    print("ZZZZZ")
+    print("ZZZZZ")
+    print("ZZZZZ")
+    print("ZZZZZ")
+    print("ZZZZZ")
 
-    df_p0c = df_filtered[df_filtered['_field'] == p0c_field]
+    print("df filtered", df_filtered)
+
+    df_p0c = df_filtered[df_filtered['_field'] == 'tickCumulative']
     df_p0c = df_p0c.sort_values(by='_time', ignore_index=True)
 
-    df_p1c = df_filtered[df_filtered['_field'] == p1c_field]
-    df_p1c = df_p1c.sort_values(by='_time', ignore_index=True)
 
-    print(df_p0c)
-    print(p0c_field)
-    print(p1c_field)
+    print("dfpoc", df_p0c)
+    df_p0c.to_csv('uniswapv3_eth_dai.csv')
 
     # Get the last timestamp
     timestamp = datetime.timestamp(df_p0c['_time'][len(df_p0c['_time'])-1])
 
-    return timestamp, [df_p0c, df_p1c]
+    return timestamp, df_p0c
 
 
 
@@ -273,7 +280,7 @@ def compute_amount_out(twap_112: np.ndarray, amount_in: int) -> np.ndarray:
 def get_twap_uni(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
     window = p['window']
 
-    print(pc)
+    print("pc", type(pc))
 
     dp = pc.filter(items=['_value'])\
         .rolling(window=window)\
@@ -288,7 +295,7 @@ def get_twap_uni(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
         .rolling(window=window)\
         .apply(lambda w: w[-1] - w[0], raw=True)
 
-    print(dt)
+    print("dt", dt)
 
     # with NaNs filtered out
     prices = (1.0001 ** ( dp['_value'] / dt['_time'] )).to_numpy()
@@ -364,7 +371,7 @@ def get_twaps_uni(
     q: tp.Dict,
     p: tp.Dict 
 ) -> tp.List[pd.DataFrame]:
-    return [get_twap_uni(pc, q, p) for pc in pcs]
+    return get_twap_uni(pcs, q, p)
 
 def get_samples_from_twaps(
         twaps: tp.List[pd.DataFrame]) -> tp.List[np.ndarray]:
@@ -439,7 +446,9 @@ def main():
                 params
             )
 
-            data_days = pcs[0]['_time'].max() - pcs[0]['_time'].min()
+            data_days = pcs['_time'].max() - pcs['_time'].min()
+
+            print("pcs", pcs)
 
             twaps = get_twaps_uni(pcs, q, params)
 
