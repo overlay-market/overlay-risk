@@ -80,13 +80,11 @@ def read_observations(pool, time_from):
 
         index = slot0[2]
         cardinality = slot0[3]
-        print("index", index)
-        print("cardinality", cardinality)
 
         new_obs = []
 
         for x in range(cardinality):
-            i = ( index + x + 1 ) % cardinality
+            i = ( index + x ) % cardinality
             o = pool.observations(i, block_identifier=block)
             b = get_b_t(o[0])
             liq = pool.liquidity(block_identifier=b)
@@ -106,13 +104,13 @@ def read_observations(pool, time_from):
                 ]
             }
 
-            print(".")
-
             new_obs.append(item)
 
         new_obs.reverse()
 
-        time_from = new_obs[len(new_obs) - 1]['observation'][0]
+        time_from = new_obs[0]['observation'][0]
+
+        print("TIME FROM", time_from)
 
         return time_from, new_obs
 
@@ -155,7 +153,6 @@ def find_cardinality_increase_time (pair: Contract, t_strt: int) -> int:
         if (slot0[4] == cardinality):
             t_strt += 86400
         else: 
-            print("break")
             break
 
     return t_strt
@@ -167,10 +164,8 @@ def POOL(addr: str, abi) -> Contract:
 def find_start(quote) -> int:
     try:
         timestamps = mock_feeds[quote['id']]['timestamps']
-        print("START", mock_feeds)
         return timestamps[len(timestamps) - 1]
     except ( KeyError, IndexError ) as e:
-        print("ERROR", quote['time_deployed'], e)
         return quote['time_deployed']
 
 def index_pair(args: tp.Tuple):
@@ -179,7 +174,6 @@ def index_pair(args: tp.Tuple):
 
     with ThreadPoolExecutor() as executor:
         for item in executor.map(read_tick_set, calls):
-            print("item", item)
             if not math.isnan(item[0]):
                 mock_feeds[quote['id']]['timestamps'].append(item[0])
                 mock_feeds[quote['id']]['tick_cumulatives'].append(list(item[1]))
@@ -228,10 +222,8 @@ def main():
         pool = POOL(q['pair'], get_uni_abi())
         obs = load_obs(q)
 
-        time_from = obs[-1]['observation']['blockTimestamp'] if len(obs) else chain[-1].timestamp
+        time_from = obs[-1]['observation'][0] if len(obs) else chain[-1].timestamp
         time_stop = find_cardinality_increase_time(pool, q['time_deployed'] + 1)
-
-        print("time from", time_from)
 
         while True:
 
@@ -251,11 +243,3 @@ def main():
             if time_from < time_stop: break
 
         # print("stopped")
-
-
-# def hello():
-#     print("obs_json", mock_feeds)
-#     with open(mock_feeds_path(), 'w', encoding='utf-8') as file:
-#         json.dump(mock_feeds, file, ensure_ascii=False, indent=4)
-
-# atexit.register(hello)
