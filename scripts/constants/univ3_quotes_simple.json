@@ -1,7 +1,7 @@
 {
   "quotes": [
         {
-            "id": "UniswapV3: WETH / DAI .3%",
+            "id": "UniswapV3: WETH/DAI 30bps",
             "amount_in": 1e18,
             "block_deployed": 12369854,
             "time_deployed": 1620159368,
