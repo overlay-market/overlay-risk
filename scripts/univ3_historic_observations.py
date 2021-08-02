@@ -86,7 +86,7 @@ def read_observations(pool, time_from):
         for x in range(cardinality):
             i = ( index + 1 + x ) % cardinality
             o = pool.observations(i, block_identifier=block)
-            b = get_b_t(o[0])
+            b,_ = get_b_t(o[0])
             liq = pool.liquidity(block_identifier=b)
             tick = pool.slot0(block_identifier=b)[1]
 
