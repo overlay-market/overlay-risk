@@ -84,7 +84,7 @@ def read_observations(pool, time_from):
         new_obs = []
 
         for x in range(cardinality):
-            i = ( index + x ) % cardinality
+            i = ( index + 1 + x ) % cardinality
             o = pool.observations(i, block_identifier=block)
             b = get_b_t(o[0])
             liq = pool.liquidity(block_identifier=b)
@@ -108,9 +108,7 @@ def read_observations(pool, time_from):
 
         new_obs.reverse()
 
-        time_from = new_obs[0]['observation'][0]
-
-        print("TIME FROM", time_from)
+        time_from = new_obs[-1]['observation'][0]
 
         return time_from, new_obs
 
@@ -228,7 +226,6 @@ def main():
         while True:
 
             time_from, new_obs = read_observations(pool, time_from)
-            print("new observations", len(new_obs))
 
             obs.extend(new_obs)
 
@@ -241,5 +238,3 @@ def main():
             save_obs(q, obs)
 
             if time_from < time_stop: break
-
-        # print("stopped")
