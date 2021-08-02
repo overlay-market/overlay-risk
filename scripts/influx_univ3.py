@@ -1,3 +1,5 @@
+from numpy.core.numeric import NaN
+from numpy.lib.type_check import nan_to_num
 import pandas as pd
 import numpy as np
 import os
@@ -11,6 +13,7 @@ import brownie
 import sys
 import requests
 import datetime
+import atexit
 
 from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor 
@@ -24,6 +27,13 @@ from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
 
 block_subgraph = 'https://api.thegraph.com/subgraphs/name/decentraland/blocks-ethereum-mainnet'
+
+obs_json = {
+    'timestamps': [],
+    'tick_cumulatives': [],
+    'liquidity_cumulatives': []
+}
+
 
 def get_b_q (timestamp: int) -> str:
     return """query {
@@ -65,7 +75,7 @@ def POOL(addr: str, abi) -> Contract:
 
 def get_quote_path() -> str:
     base = os.path.dirname(os.path.abspath(__file__))
-    qp = 'constants/univ3_quotes_1.json'
+    qp = 'constants/univ3_quotes_simple.json'
     return os.path.join(base, qp)
 
 def get_quotes() -> tp.List:
@@ -109,20 +119,41 @@ def get_calls(pair: Contract, t_from: int, t_to: int, t_period: int) -> tp.List:
 
 def read_tick_set( args: tp.Tuple ) -> tp.Tuple:
 
-    ( pair, t_at, t_p ) = args
-
+    ( pair, t_at, ts ) = args
     ( b, b_t ) = get_b_t(t_at)
 
-    ( ticks_cum, liqs_cum ) = pair.observe([0], block_identifier=b)
+    try:
+        ( ticks_cum, liqs_cum ) = pair.observe(ts, block_identifier=b)
+        return ( b_t, ticks_cum, liqs_cum )
+    except Exception as e:
+        return ( NaN, NaN, NaN )
 
-    return ( b_t, ticks_cum, liqs_cum ) 
+def find_cardinality_increase_time (pair: Contract, t_strt: int) -> int:
+
+    cardinality = 1
+
+    while True:
+        ( b, b_t ) = get_b_t(t_strt)
+        print("b", b)
+        slot0 = pair.slot0(block_identifier=b)
+        print("slot0[4]", slot0[4], "cardinality", cardinality, slot0[4] == cardinality)
+        if (slot0[4] == cardinality):
+            cardinality = slot0[4]
+            t_strt += 86400
+        else: 
+            print("break")
+            break
+
+    return t_strt
+
+
 
 def find_start(api, quote, config) -> int:
 
     r = api.query_data_frame(org=config['org'], query=f'''
         from(bucket:"{config['bucket']}") 
             |> range(start:0, stop: now())
-            |> filter(fn: (r) => r["id"] == "{quote['id']}")
+            |> filter(fn: (r) => r["id"] == "{quote['id'] + ' ' + quote['variant']}")
             |> last()
     ''')
 
@@ -133,41 +164,49 @@ def find_start(api, quote, config) -> int:
         return quote['time_deployed'] + 1200
 
 def index_pair(args: tp.Tuple):
+    global obs_json
 
     ( write_api, quote, calls, config ) = args
 
     columns = [ 'timestamp', 'tick_cumulative', 'liquidity_cumulative' ]
 
     with ThreadPoolExecutor() as executor:
-        for i in executor.map(read_tick_set, calls):
-            i_df = pd.DataFrame([i], columns=columns)
-            try:
-                point = Point("mem")\
-                    .tag("id", quote['id'])\
-                    .tag("token0_name", quote['token0_name'])\
-                    .tag("token1_name", quote['token1_name'])\
-                    .time(
-                        datetime.utcfromtimestamp(float(i[0])),
-                        WritePrecision.NS
-                    )
+        for item in executor.map(read_tick_set, calls):
+            print("item", item)
+            obs_json['timestamps'].append(item[0])
+            obs_json['tick_cumulatives'].append(list(item[1]))
+            obs_json['liquidity_cumulatives'].append(list(item[2]))
+            # if not math.isnan(item[0]):
+                # try:
+                #     point = Point("mem")\
+                #         .tag("id", quote['id'] + ' ' + quote['variant'])\
+                #         .tag("token0_name", quote['token0_name'])\
+                #         .tag("token1_name", quote['token1_name'])\
+                #         .time(
+                #             datetime.utcfromtimestamp(float(item[0])),
+                #             WritePrecision.NS
+                #         )
 
-                point = point.field('tickCumulative', float(i[1][0]))
+                #     for i, f in enumerate(quote['fields']):
+                #         point = point.field(f, float(item[1][i]))
+                #         point = point.field(f, float(item[1][i]))
 
-                write_api.write(config['bucket'], config['org'], point)
-                print("written", 
-                    quote['id'], 
-                    datetime.fromtimestamp(i[0]).strftime("%m/%d/%Y, %H:%M:%S")
-                )
-            except Exception as e:
-                raise e
+                #     write_api.write(config['bucket'], config['org'], point)
+                #     print("written", 
+                #         quote['id'], 
+                #         datetime.fromtimestamp(item[0]).strftime("%m/%d/%Y, %H:%M:%S")
+                #     )
+                # except Exception as e:
+                #     raise e
 
 def main():
     print(f"You are using the '{network.show_active()}' network")
+
     config = get_config()
     quotes = get_quotes()
     client = create_client(config)
-    q_api = client.query_api()
-    d_api = client.delete_api()
+    query_api = client.query_api()
+    delete_api = client.delete_api()
     write_api = client.write_api(
         write_options=SYNCHRONOUS,
         point_settings=get_point_settings()
@@ -177,54 +216,57 @@ def main():
 
     index_pair_calls = []
 
-    # d_api.delete( "1970-01-01T00:00:00Z", "2021-12-12T00:00:00Z", '', bucket=config['bucket'], org=config['org'])
+    delete_api.delete( "1970-01-01T00:00:00Z", "2021-12-12T00:00:00Z", '', bucket=config['bucket'], org=config['org'] )
 
+    get_uni_prices_mock(quotes, query_api, write_api, config)
+
+def get_uni_prices_mock (quotes, query_api, write_api, config):
+
+    abi = get_uni_abi()
+    index_pair_calls = []
     for q in quotes:
+        q['variant'] = 'mocks'
+        q['fields'] = ['tick_cumulative_now', 'tick_cumulative_then']
         pool = POOL(q['pair'], abi)
         t_cur = math.floor(time.time())
-        t_strt = find_start(q_api, q, config)
-        index_pair_calls.append( 
-            ( write_api, q, get_calls(pool, t_strt, t_cur, 600) , config ) 
-        )
+        t_start = find_start(query_api, q, config)
+        t_cardinality = find_cardinality_increase_time(pool, q['time_deployed']+1)
+        t_start = t_start if t_start > t_cardinality else t_cardinality
+        read_tick_calls = [ (pool,x,[0,600]) for x in np.arange(t_start, t_cur, 600 )]
+        times = [ x for x in np.arange(t_start, t_cur, 600) ]
+        # print("times", times)
+        index_pair_calls.append(( write_api, q, read_tick_calls, config))
 
     with ThreadPoolExecutor() as executor:
-        print("hello")
         for i in executor.map(index_pair, index_pair_calls):
-            print("i", i)
+            print("done", i)
 
-    # client.close()
+    pass
 
-    # # pool = POOL(quotes[0]['pair'], abi)
-    # # t_c = math.floor(time.time()) - 600
-    # # t_s = find_start(q_api, quotes[0], config)
-    # # calls = get_calls(pool, t_c, t_s, 600)
-    # # columns = ['timestamp', 'tick_cumulatives', 'liquidity_per_second_cumulatives']
+def get_uni_prices_metrics (quotes, query_api, write_api, config):
+    abi = get_uni_abi()
 
-    # # p_df = pd.DataFrame(columns=columns)
-    # # with ThreadPoolExecutor() as executor:
-    # #     for i in executor.map(read_tick_set, calls):
-    # #         print(i)
-    # #         i_df = pd.DataFrame([i], columns=columns)
+    index_pair_calls = []
+    for q in quotes:
 
-    # #         try:
-    # #             point = Point("mem")\
-    # #                 .tag("id", quotes[0]['id'])\
-    # #                 .tag("token0_name", quotes[0]['token0_name'])\
-    # #                 .tag("token1_name", quotes[0]['token1_name'])\
-    # #                 .time(
-    # #                     datetime.utcfromtimestamp(float(i[0])),
-    # #                     WritePrecision.NS
-    # #                 )
-                
-    # #             point = point.field('tickCumulative', float(i[1][0]))
-    # #             point = point.field('tickCumulativeMinusPeriod', float(i[1][1]))
+        q['variant'] = 'metrics'
+        q['fields'] = ['tick_cumulative']
+        pool = POOL(q['pair'], abi)
+        t_cur = math.floor(time.time())
+        t_start = find_start(query_api, q, config)
 
-    # #             write_api.write(config['bucket'], config['org'], point)
-    # #             print("written")
-    # #         except Exception as e:
-    # #             raise e
+        read_tick_calls = [ ( pool, x, [0] ) for x in np.arange(t_start, t_cur, 600) ]
+        index_pair_calls.append(( write_api, q, read_tick_calls, config))
 
-    # #         p_df = p_df.append(i_df, ignore_index=True)
+    with ThreadPoolExecutor() as executor:
+        for i in executor.map(index_pair, index_pair_calls):
+            print("done", i)
 
-    # # client.close()
+    pass
 
+
+
+def hello():
+    print("obs_json", obs_json)
+
+atexit.register(hello)
