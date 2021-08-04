@@ -4,7 +4,7 @@ import requests
 import typing as tp
 import os
 
-from brownie import web3, chain, network, Contract
+from brownie import chain, network, Contract
 from concurrent.futures import ThreadPoolExecutor 
 from numpy.core.numeric import NaN
 
@@ -184,7 +184,7 @@ def mock_feeds_path():
 def obs_json_path(q):
 
     p = os.path.dirname(os.path.abspath(__file__))
-    p = os.path.join(p, '../univ3_historic_observations', 
+    p = os.path.join(p, '../univ3_feed_output', 
         'univ3_' 
         + q['token0_name'].lower() + '_' 
         + q['token1_name'].lower() + '.json' )

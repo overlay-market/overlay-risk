@@ -1,31 +1,15 @@
 from numpy.core.numeric import NaN
-from numpy.lib.type_check import nan_to_num
-import pandas as pd
-import numpy as np
 import os
 import json
 import typing as tp
-import logging
-import time
 import math
-import asyncio
-import brownie
-import sys
 import requests
-import datetime
 import atexit
 import json
 
-from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor 
-from concurrent.futures import ProcessPoolExecutor 
-import concurrent.futures
 
-from brownie import web3, chain, network, Contract
-from datetime import datetime
-
-from influxdb_client import InfluxDBClient, Point, WritePrecision
-from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
+from brownie import network, Contract
 
 block_subgraph = 'https://api.thegraph.com/subgraphs/name/decentraland/blocks-ethereum-mainnet'
 
@@ -46,7 +30,7 @@ def get_b_q (timestamp: int) -> str:
 
 def get_quote_path() -> str:
     base = os.path.dirname(os.path.abspath(__file__))
-    qp = 'constants/univ3_quotes_for_mock.json'
+    qp = 'constants/univ3_quotes_simple.json'
     return os.path.join(base, qp)
 
 def get_quotes() -> tp.List:
@@ -134,7 +118,8 @@ def index_pair(args: tp.Tuple):
 
 def mock_feeds_path():
     p = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(p, 'univ3_mock_feeds.json')
+    p = os.path.join(p, '../univ3_feed_output/univ3_mock_feeds.json')
+    return os.path.normpath(p)
 
 def main():
     print(f"You are using the '{network.show_active()}' network")

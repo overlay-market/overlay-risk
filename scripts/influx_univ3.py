@@ -1,26 +1,15 @@
 from numpy.core.numeric import NaN
-from numpy.lib.type_check import nan_to_num
-import pandas as pd
 import numpy as np
 import os
 import json
 import typing as tp
-import logging
 import time
 import math
-import asyncio
-import brownie
-import sys
 import requests
-import datetime
-import atexit
 
-from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor 
-from concurrent.futures import ProcessPoolExecutor 
-import concurrent.futures
 
-from brownie import web3, chain, network, Contract
+from brownie import web3, network, Contract
 from datetime import datetime
 
 from influxdb_client import InfluxDBClient, Point, WritePrecision
@@ -194,8 +183,6 @@ def get_uni_cumulatives (quotes, query_api, write_api, config):
 
         read_cumulatives_calls = [ (pool,x) for x in np.arange(t_start,t_cur,600) ]
         index_pair_calls.append(( write_api, q, read_cumulatives_calls, config ))
-
-    print("index pair calls", len(index_pair_calls))
 
     with ThreadPoolExecutor() as executor:
         for i in executor.map(index_pair, index_pair_calls):
