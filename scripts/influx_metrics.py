@@ -70,8 +70,8 @@ def get_params() -> tp.Dict:
 
     Outputs:
         [tp.Dict]
-        points  [int]:          1 mo of data behind to estimate mles
-        window  [int]:          1h TWAPs (assuming ovl_sushi ingested every
+        points  [int]:          1 mo of data behind to estimate MLEs
+        window  [int]:          1h TWAPs (assuming `ovl_sushi` ingested every
                                 10m)
         period  [int]:          10m periods [s]
         alpha   List[float]:    alpha uncertainty in VaR calc
@@ -131,15 +131,15 @@ def get_price_fields() -> (str, str):
     return 'price0Cumulative', 'price1Cumulative'
 
 
-# Fetches historical timeseries of priceCumulatives from influx
 def get_price_cumulatives(
         query_api,
         cfg: tp.Dict,
         q: tp.Dict,
         p: tp.Dict) -> (int, tp.List[pd.DataFrame]):
     '''
-    Fetches `priceCumulative` values for the last `params['points']` number of
-    days for id `quote['id']` from the config bucket `source` in `org`.
+    Fetches `historical time series of priceCumulative` values for the last
+    `params['points']` number of days for id `quote['id']` from the config
+    bucket `source` in `org`.
 
     Inputs:
         query_api  [QueryApi]:  InfluxDB client QueryApi instance
@@ -164,7 +164,7 @@ def get_price_cumulatives(
         p          [tp.Dict]:  Parameters to use in statistical estimates
           points  [int]:          1 mo of data behind to estimate mles
           window  [int]:          1h TWAPs (assuming ovl_sushi ingested every
-                                  10m)
+                                  10m) [s]
           period  [int]:          10m periods [s]
           alpha   List[float]:    alpha uncertainty in VaR calc
           n:      List[int]:      number of periods into the future over which
@@ -177,9 +177,11 @@ def get_price_cumulatives(
                                                   dataframes
           priceCumulatives0  [pandas.DataFrame]:
             _time  [int]:  Unix timestamp
+            _field [str]:  Price field, `price0Cumulative`
             _value [int]:  `priceCumulative0` at unix timestamp `_time`
           priceCumulatives1  [pandas.DataFrame]:
             _time  [int]:  Unix timestamp
+            _field [str]:  Price field, `price1Cumulative`
             _value [int]:  `priceCumulative1` at unix timestamp `_time`
     '''
     qid = q['id']
@@ -213,11 +215,59 @@ def get_price_cumulatives(
 
 
 def compute_amount_out(twap_112: np.ndarray, amount_in: int) -> np.ndarray:
+    '''
+    Converts `FixedPoint.qu112x112` price average values of `twap_112` into
+    integer values.
+    SEE: e.g. https://github.com/overlay-market/overlay-v1-core/blob/master/contracts/OverlayV1MirinMarket.sol#L55 # noqa: E501
+    Inputs:
+      twap_112  [np.ndarray]:
+      amount_in [int]:         Unit value for the quote currency in pair
+                               e.g. WETH in SushiSwap YFI/WETH uses
+                               `amount_in = 1e18` (18 decimals)
+
+    Outputs:
+      [np.ndarray]:
+    '''
     rshift = np.vectorize(lambda x: int(x * amount_in) >> PC_RESOLUTION)
     return rshift(twap_112)
 
 
 def get_twap(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
+    '''
+    Calculates the rolling Time Weighted Average Price (TWAP) values for each
+    (`_time`, `_value`) row in the `priceCumulatives` dataframe. Rolling TWAP
+    values are calculated with a window size of `params['window']`.
+
+    Inputs:
+      pc  [pf.DataFrame]:  `priceCumulatives`
+        _time  [int]:  Unix timestamp
+        _field [str]:  Price cumulative field, `price0Cumulative` or
+                       `price1Cumulatives`
+        _value [int]:  Price cumulative field at unix timestamp `_time`
+
+      q          [tp.Dict]:   Quote pair entry fetched from SushiSwap
+        id         [str]:   Name of swap pair
+        pair       [str]:   Contract address of swap pair
+        token0     [str]:   Contract address of token 0 in swap pair
+        token1     [str]:   Contract address of token 1 in swap pair
+        is_price0  [bool]:  If true, use the TWAP value calculated from the
+                            `priceCumulative0` storage variable:
+                            `price0 = num_token_1 / num_token_0`
+
+                            If false, use the TWAP value calculated from the
+                            `priceCumulative1` storage variable
+      p          [tp.Dict]:  Parameters to use in statistical estimates
+        points  [int]:          1 mo of data behind to estimate mles
+        window  [int]:          1h TWAPs (assuming ovl_sushi ingested every
+                                10m)
+        period  [int]:          10m periods [s]
+        alpha   List[float]:    alpha uncertainty in VaR calc
+        n:      List[int]:      number of periods into the future over which
+                                VaR is calculated
+
+    Outputs:
+        [pd.DataFrame]:
+    '''
     window = p['window']
 
     dp = pc.filter(items=['_value'])\
@@ -230,29 +280,30 @@ def get_twap(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
         .rolling(window=window)\
         .apply(lambda w: w[-1] - w[0], raw=True)
 
-    # with NaNs filtered out
+    # Filter out NaNs
     twap_112 = (dp['_value'] / dt['_time']).to_numpy()
     twap_112 = twap_112[np.logical_not(np.isnan(twap_112))]
     twaps = compute_amount_out(twap_112, q['amount_in'])
 
-    # window times
     window_times = dt['_time'].to_numpy()
     window_times = window_times[np.logical_not(np.isnan(window_times))]
 
-    # window close timestamps
+    # Window close timestamps
     t = pc.filter(items=['_time'])\
         .applymap(datetime.timestamp)\
         .rolling(window=window)\
         .apply(lambda w: w[-1], raw=True)
+
     ts = t['_time'].to_numpy()
     ts = ts[np.logical_not(np.isnan(ts))]
 
     df = pd.DataFrame(data=[ts, window_times, twaps]).T
     df.columns = ['timestamp', 'window', 'twap']
 
-    # filter out any twaps that are less than or equal to 0;
-    # TODO: why? injestion from sushi?
+    # Filter out any TWAPs that are less than or equal to 0;
+    # TODO: Why? Ingestion from sushi?
     df = df[df['twap'] > 0]
+
     return df
 
 
@@ -273,11 +324,30 @@ def get_samples_from_twaps(
 def calc_vars(mu: float,
               sig_sqrd: float,
               t: int,
-              n: int, alphas: np.ndarray) -> np.ndarray:
+              n: int,
+              alphas: np.ndarray) -> np.ndarray:
+    '''
+    Calculates bracketed term:
+        [e**(mu * n * t + sqrt(sig_sqrd * n * t) * Psi^{-1}(1 - alpha))]
+    in Value at Risk (VaR) expressions for each alpha value in the `alphas`
+    numpy array. SEE: https://oips.overlay.market/notes/note-4
+
+    Inputs:
+      mu        [float]:
+      sig_sqrd  [float]:
+      t         [int]:
+      n         [int]:
+      alphas    [np.ndarray]:
+
+    Outputs:
+      [np.ndarray]:  Array of calculated values for each `alpha`
+
+    '''
     sig = np.sqrt(sig_sqrd)
-    q = 1-alphas
-    pow = mu*n*t + sig*np.sqrt(n*t)*norm.ppf(q)
-    return np.exp(pow) - 1
+    q = 1 - alphas
+    pow = mu * n * t + sig * np.sqrt(n * t) * norm.ppf(q)
+    nn = np.exp(pow) - 1
+    return nn
 
 
 def get_stat(
