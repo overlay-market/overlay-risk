@@ -213,8 +213,16 @@ def get_price_cumulatives(
 
 
 def compute_amount_out(twap_112: np.ndarray, amount_in: int) -> np.ndarray:
-    rshift = np.vectorize(lambda x: int(x * amount_in) >> PC_RESOLUTION)
-    return rshift(twap_112)
+    '''
+    Rshifts every element of `twap_112` by `amount_in` using a
+    for loop. Using `np.vectorize` results in an OverFlow error. Using
+    `np.vectorize` will be reconsidered when/if data size is too large.
+    '''
+    # rshift = np.vectorize(lambda x: int(x * amount_in) >> PC_RESOLUTION)
+    rshift = np.array(np.zeros(len(twap_112)))
+    for i in range(0, len(rshift)):
+        rshift[i] = int(twap_112[i] * amount_in) >> PC_RESOLUTION
+    return rshift
 
 
 def get_twap(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
