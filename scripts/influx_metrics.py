@@ -1,12 +1,12 @@
-import pandas as pd
+import json
+import logging
 import numpy as np
 import os
-import json
+import pandas as pd
+import pystable
 import typing as tp
-import logging
 
 from datetime import datetime, timedelta
-from scipy.stats import norm
 
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
@@ -131,11 +131,8 @@ def get_price_fields() -> (str, str):
     return 'price0Cumulative', 'price1Cumulative'
 
 
-def get_price_cumulatives(
-        query_api,
-        cfg: tp.Dict,
-        q: tp.Dict,
-        p: tp.Dict) -> (int, tp.List[pd.DataFrame]):
+def get_price_cumulatives(query_api, cfg: tp.Dict, q: tp.Dict, p: tp.Dict
+                          ) -> (int, tp.List[pd.DataFrame]):
     '''
     Fetches `historical time series of priceCumulative` values for the last
     `params['points']` number of days for id `quote['id']` from the config
@@ -321,11 +318,8 @@ def get_samples_from_twaps(
 
 # Calcs VaR * d^n normalized for initial imbalance
 # See: https://oips.overlay.market/notes/note-4
-def calc_vars(mu: float,
-              sig_sqrd: float,
-              t: int,
-              n: int,
-              alphas: np.ndarray) -> np.ndarray:
+def calc_vars(alpha: float, beta: float, sigma: float, mu: float, t: int,
+              n: int, alphas: np.ndarray) -> np.ndarray:
     '''
     Calculates bracketed term:
         [e**(mu * n * t + sqrt(sig_sqrd * n * t) * Psi^{-1}(1 - alpha))]
@@ -333,47 +327,60 @@ def calc_vars(mu: float,
     numpy array. SEE: https://oips.overlay.market/notes/note-4
 
     Inputs:
-      mu        [float]:
-      sig_sqrd  [float]:
-      t         [int]:
-      n         [int]:
-      alphas    [np.ndarray]:
+      alpha   [float]:       alpha parameter from fit
+      beta    [float]:       beta parameter from fit
+      sigma   [float]:       sigma parameter from fit
+      mu      [float]:       mu parameter from fit
+      t       [int]:         period
+      n       [int]:
+      alphas  [np.ndarray]:  array of alphas
 
     Outputs:
       [np.ndarray]:  Array of calculated values for each `alpha`
 
     '''
-    sig = np.sqrt(sig_sqrd)
-    q = 1 - alphas
-    pow = mu * n * t + sig * np.sqrt(n * t) * norm.ppf(q)
-    nn = np.exp(pow) - 1
-    return nn
+    q = 1 - np.array(alphas)
+    scale_dist = pystable.create(alpha, beta, 1, 0, 1)
+    pystable.q(scale_dist, q, len(q))
+
+    sig = sigma * (t/alpha) ** (-1/alpha)
+    mu = mu / t
+    pow = mu * n * t + sig * (n * t / alpha) ** (1 / alpha) * q
+    return np.exp(pow) - 1
 
 
-def get_stat(
-        timestamp: int,
-        sample: np.ndarray,
-        p: tp.Dict) -> pd.DataFrame:
+def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
+             ) -> pd.DataFrame:
     t = p["period"]
 
     # mles
-    rs = [
-        np.log(sample[i]/sample[i-1]) for i in range(1, len(sample), 1)
-    ]
-    mu = float(np.mean(rs) / t)
-    ss = float(np.var(rs) / t)
+    rs = [np.log(sample[i]/sample[i-1]) for i in range(1, len(sample), 1)]
+
+    # Gaussian Fit
+    fit = {'alpha': 2, 'beta': 0, 'sigma': 1, 'mu': 0, 'parameterization': 1}
+
+    # Check fit validity
+    print(pystable.checkparams(fit['alpha'], fit['beta'], fit['sigma'],
+                               fit['mu'], fit['parameterization']))
+    fit_dist = pystable.create(fit['alpha'], fit['beta'], fit['sigma'],
+                               fit['mu'], fit['parameterization'])
+
+    pystable.fit(fit_dist, rs, len(rs))
 
     # VaRs for 5%, 1%, 0.1%, 0.01% alphas, n periods into the future
     alphas = np.array(p["alpha"])
     ns = np.array(p["n"])
-    vars = [calc_vars(mu, ss, t, n, alphas) for n in ns]
+    vars = [calc_vars(fit_dist.contents.alpha, fit_dist.contents.beta,
+                      fit_dist.contents.sigma, fit_dist.contents.mu_1,
+                      t, n, alphas) for n in ns]
     var_labels = [
         f'VaR alpha={alpha} n={n}'
         for n in ns
         for alpha in alphas
     ]
 
-    data = np.concatenate(([timestamp, mu, ss], *vars), axis=None)
+    data = np.concatenate(([timestamp, fit_dist.contents.mu_0,
+                            fit_dist.contents.sigma], *vars), axis=None)
 
     df = pd.DataFrame(data=data).T
     df.columns = ['timestamp', 'mu', 'sigSqrd', *var_labels]
