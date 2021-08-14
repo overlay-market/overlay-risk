@@ -353,7 +353,6 @@ def calc_vars(mu: float,
 def get_stat(
         timestamp: int,
         sample: np.ndarray,
-        q: tp.Dict,
         p: tp.Dict) -> pd.DataFrame:
     t = p["period"]
 
@@ -384,9 +383,8 @@ def get_stat(
 def get_stats(
         timestamp: int,
         samples: tp.List[np.ndarray],
-        q: tp.Dict,
         p: tp.Dict) -> tp.List[pd.DataFrame]:
-    return [get_stat(timestamp, sample, q, p) for sample in samples]
+    return [get_stat(timestamp, sample, p) for sample in samples]
 
 
 # SEE: get_params() for more info on setup
@@ -428,7 +426,7 @@ def main():
 
             # Calc stats for each twap (NOT inverse of each other)
             samples = get_samples_from_twaps(twaps)
-            stats = get_stats(timestamp, samples, q, params)
+            stats = get_stats(timestamp, samples, params)
             print('stats', stats)
 
             for i, stat in enumerate(stats):
