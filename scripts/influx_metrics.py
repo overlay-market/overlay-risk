@@ -379,8 +379,9 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
         for alpha in alphas
     ]
 
-    data = np.concatenate(([timestamp, fit_dist.contents.mu_0,
-                            fit_dist.contents.sigma], *vars), axis=None)
+    data = np.concatenate(([timestamp, fit_dist.contents.alpha,
+                            fit_dist.contents.beta, fit_dist.contents.sigma,
+                            fit_dist.contents.mu_1], *vars), axis=None)
 
     df = pd.DataFrame(data=data).T
     df.columns = ['timestamp', 'mu', 'sigSqrd', *var_labels]
