@@ -70,3 +70,21 @@ python scripts/cron/schedule_sushi.py
 ```
 
 which will run every 10 minutes storing new cumulative price data from all quotes in `scripts/constants/quotes.json`.
+
+## Misc
+### Generate `requirements.txt`
+
+```
+% poetry cache clear --all pypi
+> Delete 63 entries? (yes/no) [no] yes
+
+% poetry lock
+% poetry install
+```
+
+Then regenerate `requirements.txt` with:
+```
+% poetry export -f requirements.txt --output requirements.txt --without-hashes
+```
+
+
