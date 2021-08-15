@@ -17,6 +17,14 @@ schedule = "^1.1.0"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.2"
+coverage = "^5.5"
+nox = "^2021.6.12"
+
+[tool.coverage.run]
+omit = [".*", "*/site-packages/*", "*/tests*"]
+
+[tool.coverage.report]
+fail_under = 48
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

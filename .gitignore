@@ -1,6 +1,8 @@
 __pycache__
+.coverage
 .history
 .hypothesis/
+.tox
 build/
 reports/
 csv/
