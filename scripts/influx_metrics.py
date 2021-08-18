@@ -218,9 +218,20 @@ def get_price_cumulatives(
 
 def compute_amount_out(twap_112: np.ndarray, amount_in: int) -> np.ndarray:
     '''
-    Rshifts every element of `twap_112` by `amount_in` using a
-    for loop. Using `np.vectorize` results in an OverFlow error. Using
-    `np.vectorize` will be reconsidered when/if data size is too large.
+    Converts `FixedPoint.qu112x112` price average values of `twap_112` into
+    integer values.
+    SEE: e.g. https://github.com/overlay-market/overlay-v1-core/blob/master/contracts/OverlayV1MirinMarket.sol#L55 # noqa: E501
+    Inputs:
+      twap_112  [np.ndarray]:
+      amount_in [int]:         Unit value for the quote currency in pair
+                               e.g. WETH in SushiSwap YFI/WETH uses
+                               `amount_in = 1e18` (18 decimals)
+    Outputs:
+      [np.ndarray]:
+
+    Note:
+      Using `np.vectorize` results in an OverFlow error. Using
+      `np.vectorize` will be reconsidered when/if data size is too large.
     '''
     # rshift = np.vectorize(lambda x: int(x * amount_in) >> PC_RESOLUTION)
     rshift = np.array(np.zeros(len(twap_112)))
