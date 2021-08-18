@@ -80,8 +80,9 @@ def get_params() -> tp.Dict:
     '''
     return {
         "points": 30,
-        "window": 6,
+        "window": 3600,
         "period": 600,
+        "tolerance": 300,
         "alpha": [0.05, 0.01, 0.001, 0.0001],
         "n": [144, 1008, 2016, 4320],
     }
@@ -190,6 +191,7 @@ def get_price_cumulatives(
     print(f'Fetching prices for {qid} ...')
     query = f'''
         from(bucket:"{bucket}") |> range(start: -{points}d)
+            |> filter(fn: (r) => r["_measurement"] == "mem")
             |> filter(fn: (r) => r["id"] == "{qid}")
     '''
     df = query_api.query_data_frame(query=query, org=org)
