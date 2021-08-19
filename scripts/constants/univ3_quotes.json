@@ -2,13 +2,14 @@
   "quotes": [
         {
             "id": "UniswapV3: WETH / DAI .3%",
+            "amount_in": 1e18,
+            "block_deployed": 12369854,
+            "is_price0": true,
             "pair": "0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8",
             "token0": "0x6b175474e89094c44da98b954eedeac495271d0f ",
             "token1": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
             "token0_name": "DAI",
-            "token1_name": "WETH",
-            "is_price0": true,
-            "amount_in": 1e18
+            "token1_name": "WETH"
         }
     ]
 }
