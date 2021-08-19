@@ -3,6 +3,7 @@ import math
 import requests
 import typing as tp
 import os
+import logging
 
 from brownie import chain, network, Contract
 from concurrent.futures import ThreadPoolExecutor
@@ -57,34 +58,27 @@ def get_uni_abi() -> tp.Dict:
 
 
 def get_b_t(timestamp: int) -> tp.Tuple:
-
     q = {'query': get_b_q(timestamp)}
-
     result = requests.post(BLOCK_SUBGRAPH_ENDPOINT, json=q)
     result = result.text
     result = json.loads(result)['data']['blocks'][0]
-
     return int(result['number']), int(result['timestamp'])
 
 
 def read_tick_set(args: tp.Tuple) -> tp.Tuple:
-
     (pair, t_at, ts) = args
     (b, b_t) = get_b_t(t_at)
-
     try:
         (ticks_cum, liqs_cum) = pair.observe(ts, block_identifier=b)
         return (b_t, ticks_cum, liqs_cum)
     except Exception as e:
+        logging.exception(e)
         return (NaN, NaN, NaN)
 
 
 def read_observations(pool, time_from):
-
     try:
-
         block, _ = get_b_t(time_from)
-
         slot0 = pool.slot0(block_identifier=block)
 
         index = slot0[2]
@@ -116,22 +110,16 @@ def read_observations(pool, time_from):
             new_obs.append(item)
 
         new_obs.reverse()
-
         time_from = new_obs[-1]['observation'][0]
-
         return time_from, new_obs
 
     except Exception as e:
-
         raise(e)
 
 
 def prep_observations(pool, observations):
-
     prepped = []
-
     for v in observations:
-
         block = get_b_t(v[0])
 
         tick = pool.slot0(block_identifier=block)[1]
@@ -146,16 +134,12 @@ def prep_observations(pool, observations):
         }
 
         prepped.append(item)
-
     return prepped
 
 
 def find_cardinality_increase_time(pair: Contract, t_strt: int) -> int:
-
     cardinality = 1
-
     while True:
-
         b, _ = get_b_t(t_strt)
         slot0 = pair.slot0(block_identifier=b)
         if (slot0[4] == cardinality):
@@ -176,13 +160,12 @@ def find_start(quote) -> int:
         timestamps = mock_feeds[quote['id']]['timestamps']
         return timestamps[len(timestamps) - 1]
     except (KeyError, IndexError) as e:
+        logging.exception(e)
         return quote['time_deployed']
 
 
 def index_pair(args: tp.Tuple):
-
     (quote, calls) = args
-
     with ThreadPoolExecutor() as executor:
         for item in executor.map(read_tick_set, calls):
             if not math.isnan(item[0]):
