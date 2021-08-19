@@ -96,7 +96,7 @@ def get_quote_path() -> str:
 
     '''
     base = os.path.dirname(os.path.abspath(__file__))
-    qp = 'constants/univ3_quotes_1.json'
+    qp = 'constants/quotes.json'
     return os.path.join(base, qp)
 
 
@@ -127,11 +127,7 @@ def get_quotes() -> tp.List:
     return quotes
 
 
-def get_price_fields_uni() -> tp.Tuple[str, str]:
-    return 'tickCumulative', 'tickCumulativeMinusPeriod'
-
-
-def get_price_fields() -> tp.Tuple[str, str]:
+def get_price_fields() -> (str, str):
     return 'price0Cumulative', 'price1Cumulative'
 
 
@@ -192,15 +188,10 @@ def get_price_cumulatives(query_api, cfg: tp.Dict, q: tp.Dict, p: tp.Dict
 
     print(f'Fetching prices for {qid} ...')
     query = f'''
-        from(bucket:"{bucket}")
-            |> range(start: -{points}d)
+        from(bucket:"{bucket}") |> range(start: -{points}d)
             |> filter(fn: (r) => r["id"] == "{qid}")
     '''
-
-    print("query ", query)
     df = query_api.query_data_frame(query=query, org=org)
-
-    print(df)
     if type(df) == list:
         df = pd.concat(df, ignore_index=True)
 
@@ -219,57 +210,6 @@ def get_price_cumulatives(query_api, cfg: tp.Dict, q: tp.Dict, p: tp.Dict
 
     return timestamp, [df_p0c, df_p1c]
 
-# Fetches historical timeseries of priceCumulatives from influx
-
-
-def get_price_cumulatives_uni(
-        query_api,
-        cfg: tp.Dict,
-        q: tp.Dict,
-        p: tp.Dict) -> tp.Tuple[int, tp.List[pd.DataFrame]]:
-
-    qid = q['id']
-    points = p['points']
-    bucket = cfg['source']
-    org = cfg['org']
-
-    print(f'Fetching prices for {qid} ...')
-    query = f'''
-        from(bucket:"{bucket}")
-            |> range(start: -{90}d)
-            |> filter(fn: (r) => r["id"] == "{qid}")
-    '''
-
-    df = query_api.query_data_frame(query=query, org=org)
-
-    print(df)
-    if type(df) == list:
-        df = pd.concat(df, ignore_index=True)
-
-    # Filter then separate the df into p0c and p1c dataframes
-    df_filtered = df.filter(items=['_time', '_field', '_value'])
-    print("ZZZZZ")
-    print("ZZZZZ")
-    print("ZZZZZ")
-    print("ZZZZZ")
-    print("ZZZZZ")
-    print("ZZZZZ")
-    print("ZZZZZ")
-    print("ZZZZZ")
-
-    print("df filtered", df_filtered)
-
-    df_p0c = df_filtered[df_filtered['_field'] == 'tickCumulative']
-    df_p0c = df_p0c.sort_values(by='_time', ignore_index=True)
-
-    print("dfpoc", df_p0c)
-    df_p0c.to_csv('uniswapv3_eth_dai.csv')
-
-    # Get the last timestamp
-    timestamp = datetime.timestamp(df_p0c['_time'][len(df_p0c['_time'])-1])
-
-    return timestamp, df_p0c
-
 
 def compute_amount_out(twap_112: np.ndarray, amount_in: int) -> np.ndarray:
     '''
@@ -287,50 +227,6 @@ def compute_amount_out(twap_112: np.ndarray, amount_in: int) -> np.ndarray:
     '''
     rshift = np.vectorize(lambda x: int(x * amount_in) >> PC_RESOLUTION)
     return rshift(twap_112)
-
-
-def get_twap_uni(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
-    window = p['window']
-
-    print("pc", type(pc))
-
-    dp = pc.filter(items=['_value'])\
-        .rolling(window=window)\
-        .apply(lambda w: w[-1] - w[0], raw=True)
-
-    print(dp)
-    # print("dp ^")
-
-    # for time, need to map to timestamp first then apply delta
-    dt = pc.filter(items=['_time'])\
-        .applymap(datetime.timestamp)\
-        .rolling(window=window)\
-        .apply(lambda w: w[-1] - w[0], raw=True)
-
-    print("dt", dt)
-
-    # with NaNs filtered out
-    prices = (1.0001 ** (dp['_value'] / dt['_time'])).to_numpy()
-    prices = prices[np.logical_not(np.isnan(prices))]
-
-    twaps = [[p, 1/p] for p in prices]
-
-    # window times
-    window_times = dt['_time'].to_numpy()
-    window_times = window_times[np.logical_not(np.isnan(window_times))]
-
-    # window close timestamps
-    t = pc.filter(items=['_time'])\
-        .applymap(datetime.timestamp)\
-        .rolling(window=window)\
-        .apply(lambda w: w[-1], raw=True)
-    ts = t['_time'].to_numpy()
-    ts = ts[np.logical_not(np.isnan(ts))]
-
-    df = pd.DataFrame(data=[ts, window_times, twaps]).T
-    df.columns = ['timestamp', 'window', 'twap']
-
-    return df
 
 
 def get_twap(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
@@ -413,22 +309,6 @@ def get_twaps(
         q: tp.Dict,
         p: tp.Dict) -> tp.List[pd.DataFrame]:
     return [get_twap(pc, q, p) for pc in pcs]
-
-
-def get_twaps_uni(
-    pcs: tp.List[pd.DataFrame],
-    q: tp.Dict,
-    p: tp.Dict
-) -> tp.List[pd.DataFrame]:
-    return get_twap_uni(pcs, q, p)
-
-
-def get_twaps_uni(
-    pcs: tp.List[pd.DataFrame],
-    q: tp.Dict,
-    p: tp.Dict
-) -> tp.List[pd.DataFrame]:
-    return get_twap_uni(pcs, q, p)
 
 
 def get_samples_from_twaps(
@@ -515,39 +395,8 @@ def get_stats(
     return [get_stat(timestamp, sample, p) for sample in samples]
 
 
-def main():
-    config = get_config()
-    params = get_params()
-    quotes = get_quotes()
-    client = create_client(config)
-    query_api = client.query_api()
-
-    for q in quotes:
-        print('id', q['id'])
-        try:
-            timestamp, pcs = get_price_cumulatives_uni(
-                query_api,
-                config,
-                q,
-                params
-            )
-
-            data_days = pcs['_time'].max() - pcs['_time'].min()
-
-            print("pcs", pcs)
-
-            twaps = get_twaps_uni(pcs, q, params)
-
-            print(twaps)
-
-        except Exception as e:
-            raise e
-            pass
-
 # SEE: get_params() for more info on setup
-
-
-def zmain():
+def main():
     print("You are using data from the mainnet network")
     config = get_config()
     params = get_params()
@@ -611,3 +460,7 @@ def zmain():
             logging.exception(e)
 
     client.close()
+
+
+if __name__ == '__main__':
+    main()
