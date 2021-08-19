@@ -192,7 +192,7 @@ def get_price_cumulatives(query_api, cfg: tp.Dict, q: tp.Dict, p: tp.Dict
 
     print(f'Fetching prices for {qid} ...')
     query = f'''
-        from(bucket:"{bucket}") 
+        from(bucket:"{bucket}")
             |> range(start: -{points}d)
             |> filter(fn: (r) => r["id"] == "{qid}")
     '''
@@ -235,7 +235,7 @@ def get_price_cumulatives_uni(
 
     print(f'Fetching prices for {qid} ...')
     query = f'''
-        from(bucket:"{bucket}") 
+        from(bucket:"{bucket}")
             |> range(start: -{90}d)
             |> filter(fn: (r) => r["id"] == "{qid}")
     '''
@@ -261,7 +261,6 @@ def get_price_cumulatives_uni(
 
     df_p0c = df_filtered[df_filtered['_field'] == 'tickCumulative']
     df_p0c = df_p0c.sort_values(by='_time', ignore_index=True)
-
 
     print("dfpoc", df_p0c)
     df_p0c.to_csv('uniswapv3_eth_dai.csv')
@@ -414,6 +413,14 @@ def get_twaps(
         q: tp.Dict,
         p: tp.Dict) -> tp.List[pd.DataFrame]:
     return [get_twap(pc, q, p) for pc in pcs]
+
+
+def get_twaps_uni(
+    pcs: tp.List[pd.DataFrame],
+    q: tp.Dict,
+    p: tp.Dict
+) -> tp.List[pd.DataFrame]:
+    return get_twap_uni(pcs, q, p)
 
 
 def get_twaps_uni(
