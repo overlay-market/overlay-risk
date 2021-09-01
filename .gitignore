@@ -8,3 +8,4 @@ reports/
 csv/
 poetry.lock
 logging
+.python-version
