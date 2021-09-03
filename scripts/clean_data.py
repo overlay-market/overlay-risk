@@ -38,7 +38,7 @@ def main():
 
     file_path = fl + p['source']
 
-    df = pd.read_csv(file_path)
+    df = pd.read_csv(file_path).drop(['evt_block_number', 'evt_index'], axis=1)
     df['evt_block_time'] = pd.to_datetime(df['evt_block_time'])
     df.set_index('evt_block_time', inplace=True)
 
