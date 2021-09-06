@@ -13,7 +13,7 @@ CP = 4  # 5x payoff cap
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
 # periods into the future at which we want 1/compoundingFactor to start
 # exceeding VaR from priceFrame: 1/(1-2k)**n >= VaR[(P(n)/P(0) - 1)]
-NS = 1920 * np.arange(1, 22)  # 8h, 16h, 24h, ...., 168h (7d)
+NS = 480 * np.arange(1, 25)  # 2h, 4h, 6h, ...., 48h (2d)
 
 
 def gaussian():
@@ -49,15 +49,10 @@ def k(a: float, b: float, mu: float, sig: float,
     qs = pystable.q(dst_y, list(cdf_y_ginv-alphas), len(alphas))
     qs = np.array(qs)
 
-    # pow long v short
-    pow_long = qs
-
-    # pow_short = sig * ((n/a)**(1/a)) * qs - mu*n - sig * \
-    #     (n/a)**(1/a)  # TODO: check correct
-
     # factor at "infty"
-    factor_long = np.exp(pow_long)
-    factor_short = np.zeros(len(pow_long))
+    factor_long = np.exp(qs)
+    # short has less risk. just needs to have a funding rate to decay
+    factor_short = 1 + np.zeros(len(alphas))
 
     # Compare long vs short and return max of the two
     factor = np.maximum(factor_long, factor_short)
@@ -96,20 +91,18 @@ def main():
     )
 
     # calc k (funding constant)
+    g_inv = np.log(1+CP)
     ks = []
     for n in NS:
         fundings = k(dst.contents.alpha, dst.contents.beta,
                      dst.contents.mu_1, dst.contents.sigma,
-                     n, TC, ALPHAS)
-        print('n', n)
-        print('fundings', fundings)
+                     n, TC, g_inv, ALPHAS)
         ks.append(fundings)
 
-    print('ks', ks)
     df_ks = pd.DataFrame(
         data=ks,
-        columns=[f"n={n}" for n in NS],
-        index=[f"alpha={alpha}" for alpha in ALPHAS]
+        columns=[f"alpha={alpha}" for alpha in ALPHAS],
+        index=[f"n={n}" for n in NS]
     )
     print('ks:', ks)
     df_ks.to_csv(f"csv/metrics/{FILENAME}-ks.csv")
