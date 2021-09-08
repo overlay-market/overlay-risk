@@ -13,10 +13,10 @@ CP = 4  # 5x payoff cap
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
 # periods into the future at which we want 1/compoundingFactor to start
 # exceeding VaR from priceFrame: 1/(1-2k)**n >= VaR[(P(n)/P(0) - 1)]
-NS = 480 * np.arange(1, 25)  # 2h, 4h, 6h, ...., 48h (2d)
+NS = 480 * np.arange(1, 85)  # 2h, 4h, 6h, ...., 7d
 
 # For plotting nvars
-TS = 240 * np.arange(1, 721)  # 1h, 2h, 3h, ...., 30d
+TS = 240 * np.arange(1, 2161)  # 1h, 2h, 3h, ...., 30d
 ALPHA = 0.05
 
 
@@ -68,12 +68,20 @@ def k(a: float, b: float, mu: float, sig: float,
 
 def nvalue_at_risk(a: float, b: float, mu: float, sigma: float,
                    k_n: float, v: float, g_inv: float, alpha: float,
-                   t: float) -> float:
+                   t: float) -> (float, float):
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
+
+    # var long
     cdf_x_ginv = pystable.cdf(x, [g_inv], 1)[0]
-    q = pystable.q(x, [cdf_x_ginv - alpha], 1)[0]
-    return ((1-2*k_n)**(np.floor(t/v))) * (np.exp(q) - 1)
+    q_long = pystable.q(x, [cdf_x_ginv - alpha], 1)[0]
+    nvar_long = ((1-2*k_n)**(np.floor(t/v))) * (np.exp(q_long) - 1)
+
+    # var short
+    q_short = pystable.q(x, [alpha], 1)[0]
+    nvar_short = ((1-2*k_n)**(np.floor(t/v))) * (1 - np.exp(q_short))
+
+    return nvar_long, nvar_short
 
 
 def main():
@@ -123,28 +131,38 @@ def main():
 
     # For different k values at alpha = 0.05 level (diff n calibs),
     # plot VaR at times into the future
-
-    nvars = []
-    # TODO: fix for row when iterating
+    nvars_long = []
+    nvars_short = []
     for t in TS:
-        nvar_t = []
+        nvar_t_long = []
+        nvar_t_short = []
         for k_n in df_ks[f"alpha={ALPHA}"]:
-            nvar = nvalue_at_risk(
+            nvar_long, nvar_short = nvalue_at_risk(
                 a=dst.contents.alpha, b=dst.contents.beta,
                 mu=dst.contents.mu_1, sigma=dst.contents.sigma,
                 k_n=k_n, v=TC, g_inv=g_inv, alpha=ALPHA, t=t)
-            nvar_t.append(nvar)
-        nvars.append(nvar_t)
+            nvar_t_long.append(nvar_long)
+            nvar_t_short.append(nvar_short)
+        nvars_long.append(nvar_t_long)
+        nvars_short.append(nvar_t_short)
 
-    df_nvars = pd.DataFrame(
-        data=nvars,
+    df_nvars_long = pd.DataFrame(
+        data=nvars_long,
         columns=[f"k={k_n}" for k_n in df_ks[f"alpha={ALPHA}"]],
         index=[f"t={t}" for t in TS]
     )
-    # TODO: fix plotting and save figure ... only plot one or two! make sure x
-    # axis is t
-    print(f'nvars (alpha={ALPHA}):', df_nvars)
-    df_nvars.to_csv(f"csv/metrics/{FILENAME}-nvars-alpha{ALPHA}.csv")
+    df_nvars_short = pd.DataFrame(
+        data=nvars_short,
+        columns=[f"k={k_n}" for k_n in df_ks[f"alpha={ALPHA}"]],
+        index=[f"t={t}" for t in TS]
+    )
+    print(f'nvars long (alpha={ALPHA}):', df_nvars_long)
+    df_nvars_long.to_csv(
+        f"csv/metrics/{FILENAME}-nvars-long-alpha-{ALPHA}.csv")
+
+    print(f'nvars short (alpha={ALPHA}):', df_nvars_short)
+    df_nvars_short.to_csv(
+        f"csv/metrics/{FILENAME}-nvars-short-alpha-{ALPHA}.csv")
 
 
 if __name__ == '__main__':
