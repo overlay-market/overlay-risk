@@ -40,17 +40,27 @@ def rescale(dist: pystable.STABLE_DIST, t: float) -> pystable.STABLE_DIST:
     )
 
 
-def delta(a: float, b: float, mu: float,
-          sig: float, v: float, alphas: np.ndarray) -> np.ndarray:
-    d = pystable.create(alpha=a, beta=b, mu=0.0, sigma=1.0, parameterization=1)
-    qs = pystable.q(d, list(1-alphas), len(alphas))
-    qs = np.array(qs)
+def delta(a: float, b: float, mu: float, sig: float,
+          v: float, g_inv: float, alphas: np.ndarray) -> np.ndarray:
+    dst_x = pystable.create(alpha=a, beta=b, mu=mu*v,
+                            sigma=sig*((v/a)**(1/a)), parameterization=1)
 
-    delta_long = (mu * v + sig * ((v/a)**(1/a)) * qs) / 2.0
-    delta_short = (sig * ((v/a)**(1/a)) * qs - mu*v - sig*(v/a)**(1/a)) / 2.0
+    # calc quantile accounting for cap
+    cdf_x_ginv = pystable.cdf(dst_x, [g_inv], 1)[0]
+
+    qs_long = pystable.q(dst_x, list(cdf_x_ginv-alphas), len(alphas))
+    qs_long = np.array(qs_long)
+
+    qs_short = pystable.q(dst_x, list(alphas), len(alphas))
+    qs_short = np.array(qs_short)
+
+    delta_long = qs_long / 2.0
+    delta_short = - qs_short / 2.0
 
     # choose the max bw the 2
-    return np.maximum(np.maximum(delta_long, delta_short), np.zeros(len(qs)))
+    return np.maximum(
+        np.maximum(delta_long, delta_short), np.zeros(len(alphas))
+    )
 
 
 def y(dist: pystable.STABLE_DIST,
@@ -114,17 +124,17 @@ def main():
         mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
         '''
     )
+    g_inv = np.log(1+CP)
 
     # calc deltas
     deltas = delta(dst.contents.alpha, dst.contents.beta,
-                   dst.contents.mu_1, dst.contents.sigma, V, ALPHAS)
+                   dst.contents.mu_1, dst.contents.sigma, V, g_inv, ALPHAS)
     df_deltas = pd.DataFrame(data=[ALPHAS, deltas]).T
     df_deltas.columns = ['alpha', 'delta']
     print('deltas:', df_deltas)
     df_deltas.to_csv(f"csv/metrics/{FILENAME}-deltas.csv", index=False)
 
     # calc lambda (mkt impact)
-    g_inv = np.log(1+CP)
     ls = []
     for dlt in deltas:
         lambdas = lmbda(dst, dlt, V, g_inv, Q0S)
