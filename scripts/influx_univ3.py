@@ -1,4 +1,3 @@
-from numpy.core.numeric import NaN
 import numpy as np
 import os
 import json
@@ -15,10 +14,7 @@ from datetime import datetime
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
 
-BLOCK_SUBGRAPH_ROOT = "https://api.thegraph.com/"
-BLOCK_SUBGRAPH_PATH = "/subgraphs/name/decentraland/blocks-ethereum-mainnet"
-BLOCK_SUBGRAPH_ENDPOINT = os.path.join(
-    BLOCK_SUBGRAPH_ROOT, BLOCK_SUBGRAPH_PATH)
+BLOCK_SUBGRAPH_ENDPOINT = "https://api.thegraph.com/subgraphs/name/decentraland/blocks-ethereum-mainnet"  # noqa
 
 obs_json = {
     'timestamps': [],
@@ -45,7 +41,7 @@ def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
-        "bucket": os.getenv('INFLUXDB_BUCKET', 'ovl_univ3_james'),
+        "bucket": os.getenv('INFLUXDB_BUCKET', 'ovl_univ3'),
         "url": os.getenv("INFLUXDB_URL"),
     }
 
@@ -60,7 +56,7 @@ def create_client(config: tp.Dict) -> InfluxDBClient:
 
 def get_point_settings() -> PointSettings:
     point_settings = PointSettings(**{"type": "metrics-hourly"})
-    point_settings.add_default_tag("influx-univ3-james", "ingest-data-frame")
+    point_settings.add_default_tag("influx-univ3", "ingest-data-frame")
     return point_settings
 
 
@@ -71,7 +67,7 @@ def POOL(addr: str, abi) -> Contract:
 
 def get_quote_path() -> str:
     base = os.path.dirname(os.path.abspath(__file__))
-    qp = 'constants/univ3_quotes_simple.json'
+    qp = 'constants/univ3_quotes.json'
     return os.path.join(base, qp)
 
 
@@ -99,14 +95,37 @@ def get_b_t(timestamp: int) -> tp.Tuple:
 
     q = {'query': get_b_q(timestamp)}
 
-    result = json.loads(
-        requests.post(block_subgraph, json=q).text
-    )['data']['blocks'][0]
+    retries = 1
+    success = False
+
+    while not success and retries < 5:
+        try:
+            print(f'Graph API attempt: {retries}')
+            result = json.loads(
+                requests.post(BLOCK_SUBGRAPH_ENDPOINT, json=q).text
+            )['data']['blocks'][0]
+            success = True
+        except Exception as e:
+            wait = retries * 10
+            err_cls = e.__class__
+            err_msg = str(e)
+            msg = f'''
+            Error type = {err_cls}
+            Error message = {err_msg}
+            Wait {wait} secs
+            '''
+            print(msg)
+            time.sleep(wait)
+            retries += 1
 
     return (int(result['number']), int(result['timestamp']))
 
 
-def get_calls(pair: Contract, t_from: int, t_to: int, t_period: int) -> tp.List:
+def get_calls(
+        pair: Contract,
+        t_from: int,
+        t_to: int,
+        t_period: int) -> tp.List:
 
     calls = []
 
@@ -119,12 +138,31 @@ def get_calls(pair: Contract, t_from: int, t_to: int, t_period: int) -> tp.List:
 
 def find_start(api, quote, config) -> int:
 
-    r = api.query_data_frame(org=config['org'], query=f'''
-        from(bucket:"{config['bucket']}")
-            |> range(start:0, stop: now())
-            |> filter(fn: (r) => r["id"] == "{quote['id']}")
-            |> last()
-    ''')
+    retries = 1
+    success = False
+
+    while not success and retries < 5:
+        try:
+            print(f'Start date pull attempt: {retries}')
+            r = api.query_data_frame(org=config['org'], query=f'''
+                from(bucket:"{config['bucket']}")
+                    |> range(start:0, stop: now())
+                    |> filter(fn: (r) => r["id"] == "{quote['id']}")
+                    |> last()
+            ''')
+            success = True
+        except Exception as e:
+            wait = retries * 10
+            err_cls = e.__class__
+            err_msg = str(e)
+            msg = f'''
+            Error type = {err_cls}
+            Error message = {err_msg}
+            Wait {wait} secs
+            '''
+            print(msg)
+            time.sleep(wait)
+            retries += 1
 
     if (len(r.index) > 0):
         return math.floor(datetime.timestamp(
@@ -146,11 +184,15 @@ def index_pair(args: tp.Tuple):
 
     print("INDEX PAIR")
 
-    columns = ['timestamp', 'tick_cumulative', 'liquidity_cumulative']
-
     with ThreadPoolExecutor() as executor:
         for item in executor.map(read_cumulatives, calls):
             print("item", item)
+            print('token0_name', quote['token0_name'])
+            print('token1_name', quote['token1_name'])
+            print("time:", item[0])
+            print('tick_cumulative', float(item[1]))
+            print('liquidity_cumulative', float(item[2]))
+
             point = Point("mem")\
                 .tag("id", quote['id'])\
                 .tag("token0_name", quote['token0_name'])\
@@ -176,19 +218,18 @@ def main():
     quotes = get_quotes()
     client = create_client(config)
     query_api = client.query_api()
-    delete_api = client.delete_api()
     write_api = client.write_api(
         write_options=SYNCHRONOUS,
         point_settings=get_point_settings()
     )
 
-    delete_api.delete("1970-01-01T00:00:00Z", "2021-12-12T00:00:00Z",
-                      '', bucket=config['bucket'], org=config['org'])
+    t_end = math.floor(time.time())
+    while t_end <= time.time():
+        get_uni_cumulatives(quotes, query_api, write_api, config, t_end)
+        t_end = math.floor(time.time())
 
-    get_uni_cumulatives(quotes, query_api, write_api, config)
 
-
-def get_uni_cumulatives(quotes, query_api, write_api, config):
+def get_uni_cumulatives(quotes, query_api, write_api, config, t_end):
     abi = get_uni_abi()
 
     index_pair_calls = []
@@ -196,15 +237,13 @@ def get_uni_cumulatives(quotes, query_api, write_api, config):
 
         q['fields'] = ['tick_cumulative']
         pool = POOL(q['pair'], abi)
-        t_cur = math.floor(time.time())
         t_start = find_start(query_api, q, config)
-
+        curr_time = datetime.fromtimestamp(t_end)\
+            .strftime("%m/%d/%Y, %H:%M:%S")
         read_cumulatives_calls = [(pool, x)
-                                  for x in np.arange(t_start, t_cur, 600)]
+                                  for x in np.arange(t_start, t_end, 60)]
         index_pair_calls.append((write_api, q, read_cumulatives_calls, config))
 
     with ThreadPoolExecutor() as executor:
         for i in executor.map(index_pair, index_pair_calls):
-            print("done", i)
-
-    # pass
+            print(f'Done executing for timestamp until: {curr_time}')
