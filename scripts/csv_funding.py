@@ -18,7 +18,7 @@ ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
 NS = 480 * np.arange(1, 85)  # 2h, 4h, 6h, ...., 7d
 
 # For plotting nvars
-TS = 240 * np.arange(1, 2161)  # 1h, 2h, 3h, ...., 30d
+TS = 240 * np.arange(1, 720)  # 1h, 2h, 3h, ...., 30d
 ALPHA = 0.05
 
 
