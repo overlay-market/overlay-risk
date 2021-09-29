@@ -10,12 +10,12 @@ FILEPATH = f"csv/{FILENAME}.csv"  # datafile
 
 KS_FILEPATH = f"csv/metrics/{FILENAME}-ks.csv"
 
-T = 40  # 1m candle size on datafile
+T = 40  # 10m candle size on datafile
 TC = 40  # 10 m compounding period
 CP = 4  # 5x payoff cap
 
 # EV are projected over hour intervals in datafile
-TS = 5760 * np.arange(1, 30)  # 1d, 2d, ...., 30d (Ti values)
+TS = 5760 * np.array([7, 15, 20, 30])  # 7d, 15d, 20d, 30d (Ti values)
 ALPHA = 0.05
 
 
@@ -67,10 +67,12 @@ def time_averaged_ev(a: float, b: float, mu: float, sigma: float,
                      k: float, v: float, g_inv: float, cp: float,
                      is_long: bool, t: float) -> float:
     def integrand(tau):
-        return nexpected_value(a, b, mu, sigma, k, v, g_inv, cp, is_long, tau)
+        return nexpected_value(a=a, b=b, mu=mu, sigma=sigma, k=k, v=v,
+                               g_inv=g_inv, cp=cp, is_long=is_long, t=tau)
 
     integral, integral_err = integrate.quad(integrand, 0, t)
 
+    print('t', t)
     print('integral', integral)
     print('integral_err', integral_err)
     print('integral/t', integral/t)
@@ -97,6 +99,15 @@ def main():
         '''
     )
 
+    dst = rescale(dst, 1/T)
+    print(
+        f'''
+        rescaled params (1/T = {1/T}):
+        alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
+        mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
+        '''
+    )
+
     df_ks = pd.read_csv(KS_FILEPATH)
     print('df_ks[ALPHA]', df_ks[f"alpha={ALPHA}"])
 
@@ -106,29 +117,35 @@ def main():
     # For different k values at alpha = 0.05 level (diff n calibs),
     # look at time averages of EV for various Ti time periods into the future
     tavg_ev_long = []
-    tavg_ev_short = []
+    # tavg_ev_short = []
     for t in TS:
+        print('t', t)
+
         tavg_ev_t_long = []
-        tavg_ev_t_short = []
+        # tavg_ev_t_short = []
 
         for k in df_ks[f"alpha={ALPHA}"]:
+            print('k', k)
             # time averaged normalized expected value
-            tavg_ev_long = \
+            tavg_ev_l = \
                 time_averaged_ev(
                     a=dst.contents.alpha, b=dst.contents.beta,
                     mu=dst.contents.mu_1, sigma=dst.contents.sigma,
                     k=k, v=TC, g_inv=g_inv, cp=CP, is_long=True, t=t)
-            tavg_ev_short = \
-                time_averaged_ev(
-                    a=dst.contents.alpha, b=dst.contents.beta,
-                    mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                    k=k, v=TC, g_inv=g_inv, cp=CP, is_long=False, t=t)
+            # tavg_ev_s = \
+            #    time_averaged_ev(
+            #        a=dst.contents.alpha, b=dst.contents.beta,
+            #        mu=dst.contents.mu_1, sigma=dst.contents.sigma,
+            #        k=k, v=TC, g_inv=g_inv, cp=CP, is_long=False, t=t)
 
-            tavg_ev_t_long.append(tavg_ev_long)
-            tavg_ev_t_short.append(tavg_ev_short)
+            tavg_ev_t_long.append(tavg_ev_l)
+            # tavg_ev_t_short.append(tavg_ev_short)
 
         tavg_ev_long.append(tavg_ev_t_long)
-        tavg_ev_short.append(tavg_ev_t_short)
+        # tavg_ev_short.append(tavg_ev_t_short)
+
+        print('tavg_ev_long', tavg_ev_long)
+        # print('tavg_ev_short', tavg_ev_short)
 
     # VaR dataframe to csv
     df_tavg_ev_long = pd.DataFrame(
@@ -136,18 +153,23 @@ def main():
         columns=[f"k={k_n}" for k_n in df_ks[f"alpha={ALPHA}"]],
         index=[f"ti={t}" for t in TS]
     )
-    df_tavg_ev_short = pd.DataFrame(
-        data=tavg_ev_short,
-        columns=[f"k={k_n}" for k_n in df_ks[f"alpha={ALPHA}"]],
-        index=[f"ti={t}" for t in TS]
-    )
+    # df_tavg_ev_short = pd.DataFrame(
+    #    data=tavg_ev_short,
+    #    columns=[f"k={k_n}" for k_n in df_ks[f"alpha={ALPHA}"]],
+    #    index=[f"ti={t}" for t in TS]
+    # )
     print(f'tavg ev long (alpha={ALPHA}):', df_tavg_ev_long)
     df_tavg_ev_long.to_csv(
         f"csv/metrics/{FILENAME}-tavg-ev-long-alpha-{ALPHA}.csv")
 
-    print(f'nvars short (alpha={ALPHA}):', df_tavg_ev_short)
-    df_tavg_ev_short.to_csv(
-        f"csv/metrics/{FILENAME}-tavg-ev-short-alpha-{ALPHA}.csv")
+    # print(f'nvars short (alpha={ALPHA}):', df_tavg_ev_short)
+    # df_tavg_ev_short.to_csv(
+    #     f"csv/metrics/{FILENAME}-tavg-ev-short-alpha-{ALPHA}.csv")
+
+    # TODO: cap should be amount willing to print over t_i divided by tavg!
+    # IMPLEMENT THIS
+    #
+    # TODO: double check on mathematica ...
 
 
 if __name__ == '__main__':

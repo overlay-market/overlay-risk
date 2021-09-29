@@ -102,15 +102,16 @@ def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
     nes_long = oi_imb * (integral_long/alpha - 1)
 
     # expected shortfall short
-    # TODO: do this calculation out properly math style
-    nes_short = 0  # oi_imb * ()
+    q_max_short = pystable.q(x, [alpha], 1)[0]
+    integral_short, _ = integrate.quad(integrand, -np.inf, q_max_short)
+    nes_short = oi_imb * (1 - integral_short/alpha)
 
     return nes_long, nes_short, nes_long * alpha, nes_short * alpha
 
 
 def nexpected_value(a: float, b: float, mu: float, sigma: float,
-                    k_n: float, v: float, g_inv: float, cp: float,
-                    t: float) -> (float, float):
+                    k_n: float, v: float, g_inv_long: float, cp: float,
+                    g_inv_short: float, t: float) -> (float, float):
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
     oi_imb = ((1-2*k_n)**(np.floor(t/v)))
@@ -118,13 +119,14 @@ def nexpected_value(a: float, b: float, mu: float, sigma: float,
     def integrand(y): return pystable.pdf(x, [y], 1)[0] * np.exp(y)
 
     # expected value long
-    cdf_x_ginv = pystable.cdf(x, [g_inv], 1)[0]
-    integral_long, _ = integrate.quad(integrand, -np.inf, g_inv)
+    cdf_x_ginv = pystable.cdf(x, [g_inv_long], 1)[0]
+    integral_long, _ = integrate.quad(integrand, -np.inf, g_inv_long)
     nev_long = oi_imb * (integral_long - cdf_x_ginv + cp*(1-cdf_x_ginv))
 
     # expected value short
-    # TODO: do this calculation out properly math style
-    nev_short = 0  # oi_imb * ()
+    cdf_x_ginv_one = pystable.cdf(x, [g_inv_short], 1)[0]
+    integral_short, _ = integrate.quad(integrand, -np.inf, g_inv_short)
+    nev_short = oi_imb * (2*cdf_x_ginv_one - 1 - integral_short)
 
     return nev_long, nev_short
 
@@ -159,6 +161,7 @@ def main():
 
     # calc k (funding constant)
     g_inv = np.log(1+CP)
+    g_inv_one = np.log(2)
     ks = []
     for n in NS:
         fundings = k(dst.contents.alpha, dst.contents.beta,
@@ -215,15 +218,24 @@ def main():
                 nexpected_value(
                     a=dst.contents.alpha, b=dst.contents.beta,
                     mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                    k_n=k_n, v=TC, g_inv=g_inv, cp=CP, t=t)
+                    k_n=k_n, v=TC, g_inv_long=g_inv, cp=CP,
+                    g_inv_short=g_inv_one, t=t)
             nevs_t_long.append(nev_long)
             nevs_t_short.append(nev_short)
 
         nvars_long.append(nvar_t_long)
         nvars_short.append(nvar_t_short)
 
+        print('t', t)
+        print('ness_t_long', ness_t_long)
+        print('ness_t_short', ness_t_short)
+
         ness_long.append(ness_t_long)
         ness_short.append(ness_t_short)
+
+        print('t', t)
+        print('nevs_t_long', nevs_t_long)
+        print('nevs_t_short', nevs_t_short)
 
         nevs_long.append(nevs_t_long)
         nevs_short.append(nevs_t_short)
