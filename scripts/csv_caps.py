@@ -180,8 +180,7 @@ def main():
     def apply_cq(col): return IS / col
     df_cqs = df_tavg_ev.apply(apply_cq)
     print(f'cq (alpha={ALPHA}):', df_cqs)
-    df_tavg_ev_short.to_csv(
-        f"csv/metrics/{FILENAME}-cq-alpha-{ALPHA}.csv")
+    df_cqs.to_csv(f"csv/metrics/{FILENAME}-cq-alpha-{ALPHA}.csv")
 
 
 if __name__ == '__main__':
