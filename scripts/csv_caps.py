@@ -49,11 +49,11 @@ def rescale(dist: pystable.STABLE_DIST, t: float) -> pystable.STABLE_DIST:
 
 
 def nexpected_value(a: float, b: float, mu: float, sigma: float,
-                    k_n: float, v: float, g_inv_long: float, cp: float,
+                    k: float, v: float, g_inv_long: float, cp: float,
                     g_inv_short: float, is_long: bool, t: float) -> float:
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
-    oi_imb = ((1-2*k_n)**(np.floor(t/v)))
+    oi_imb = ((1-2*k)**(np.floor(t/v)))
 
     def integrand(y): return pystable.pdf(x, [y], 1)[0] * np.exp(y)
 
