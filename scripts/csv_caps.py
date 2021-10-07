@@ -146,7 +146,7 @@ def main():
                     is_long=False, t=t)
 
             tavg_ev_t_long.append(tavg_ev_l)
-            tavg_ev_t_short.append(tavg_ev_short)
+            tavg_ev_t_short.append(tavg_ev_s)
 
         tavg_ev_long.append(tavg_ev_t_long)
         tavg_ev_short.append(tavg_ev_t_short)
