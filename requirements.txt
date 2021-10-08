@@ -14,7 +14,7 @@ colorama==0.4.4; python_version >= "3.6" and python_full_version < "3.0.0" and p
 cytoolz==0.11.0; python_version >= "3.6" and python_version < "4" and (python_version >= "3.6" and python_full_version < "3.5.2" and python_version < "4" and implementation_name == "cpython" or python_full_version > "3.5.2" and python_version < "4" and python_version >= "3.6" and implementation_name == "cpython")
 eth-abi==2.1.1; python_version >= "3.6" and python_version < "4"
 eth-account==0.5.4; python_version >= "3.6" and python_version < "4"
-eth-brownie==1.14.6; python_version >= "3.6" and python_version < "4"
+git+https://github.com/deepsp94/brownie.git; python_version >= "3.6" and python_version < "4"
 eth-event==1.2.3; python_version >= "3.6" and python_version < "4"
 eth-hash==0.3.1; python_version >= "3.6" and python_version < "4" and (python_version >= "3.6" and python_full_version < "3.5.2" and python_version < "4" or python_full_version > "3.5.2" and python_version < "4" and python_version >= "3.6")
 eth-keyfile==0.5.1; python_version >= "3.6" and python_version < "4"
