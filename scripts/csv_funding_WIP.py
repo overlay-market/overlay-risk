@@ -5,7 +5,7 @@ import typing as tp
 import time
 
 from scipy import integrate
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 
 
 FILENAME = "ethusd_01012020_08232021"
@@ -89,9 +89,9 @@ def nvalue_at_risk(args: tp.Tuple) -> (float, float):
     return {
         'nvar_long': nvar_long,
         'nvar_short': nvar_short,
-        'k_n': k_n, 
+        'k_n': k_n,
         't': t
-    } # TODO:returning an arg seems weird
+    }  # TODO:returning an arg seems weird
 
 
 def nexpected_shortfall(args: tp.Tuple) -> (float, float, float, float):
@@ -176,7 +176,7 @@ def main():
 
     # calc k (funding constant)
     g_inv = np.log(1+CP)
-    g_inv_one = np.log(2)
+    # g_inv_one = np.log(2)
     ks = []
     for n in NS:
         fundings = k(dst.contents.alpha, dst.contents.beta,
@@ -198,9 +198,11 @@ def main():
     for t in TS:
         for k_n in df_ks[f"alpha={ALPHA}"]:
             nvalue_at_risk_calls.append(
-                (dst.contents.alpha, dst.contents.beta,
-                dst.contents.mu_1, dst.contents.sigma,
-                k_n, TC, g_inv, ALPHA, t)
+                (
+                    dst.contents.alpha, dst.contents.beta,
+                    dst.contents.mu_1, dst.contents.sigma,
+                    k_n, TC, g_inv, ALPHA, t
+                )
             )
 
     nexpected_shortfall_calls = nvalue_at_risk_calls
@@ -213,11 +215,14 @@ def main():
     with ProcessPoolExecutor() as executor:
         for item in executor.map(nvalue_at_risk, nvalue_at_risk_calls):
             nvalue_at_risk_values.append(item)
-    
+
     print('nvalue_at_risk_values: ', nvalue_at_risk_values)
 
     with ProcessPoolExecutor() as executor:
-        for item in executor.map(nexpected_shortfall, nexpected_shortfall_calls):
+        for item in executor.map(
+                nexpected_shortfall,
+                nexpected_shortfall_calls
+                ):
             nexpected_shortfall_values.append(item)
 
     print('nexpected_shortfall_values: ', nexpected_shortfall_values)
@@ -225,6 +230,7 @@ def main():
     end_time = time.time()
 
     print('time taken: ', end_time - start_time)
+
 
 if __name__ == '__main__':
     main()
