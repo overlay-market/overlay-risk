@@ -2,9 +2,10 @@ import pystable
 import pandas as pd
 import numpy as np
 import typing as tp
+import time
 
 from scipy import integrate
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 
 FILENAME = "ethusd_01012020_08232021"
@@ -88,9 +89,9 @@ def nvalue_at_risk(args: tp.Tuple) -> (float, float):
     return nvar_long, nvar_short, k_n, t # TODO:returning an arg seems weird
 
 
-def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
-                        k_n: float, v: float, g_inv: float, alpha: float,
-                        t: float) -> (float, float, float, float):
+def nexpected_shortfall(args: tp.Tuple) -> (float, float, float, float):
+    (a, b, mu, sigma, k_n, v, g_inv, alpha, t) = args
+
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
     oi_imb = ((1-2*k_n)**(np.floor(t/v)))
@@ -108,7 +109,7 @@ def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
     integral_short, _ = integrate.quad(integrand, -np.inf, q_max_short)
     nes_short = oi_imb * (1 - integral_short/alpha)
 
-    return nes_long, nes_short, nes_long * alpha, nes_short * alpha
+    return nes_long, nes_short, nes_long * alpha, nes_short * alpha, k_n, t
 
 
 def nexpected_value(a: float, b: float, mu: float, sigma: float,
@@ -190,16 +191,33 @@ def main():
                 k_n, TC, g_inv, ALPHA, t)
             )
 
+    nexpected_shortfall_calls = nvalue_at_risk_calls
+
     nvar_long = pd.DataFrame()
     nvar_short = pd.DataFrame()
+    ness_long = pd.DataFrame()
+    ness_short = pd.DataFrame()
 
-    with ThreadPoolExecutor() as executor:
+    start_time = time.time()
+
+    with ProcessPoolExecutor() as executor:
         for nvar_long_i, nvar_short_i, t_i, k_i in executor.map(nvalue_at_risk, nvalue_at_risk_calls):
             nvar_long.loc[t_i, k_i] = nvar_long_i
             nvar_short.loc[t_i ,k_i] = nvar_short_i
-
+    
     print('nvar_long: ', nvar_long)
-    print('nvar_short: ', nvar_short)
+
+    # with ProcessPoolExecutor() as executor:
+    #     for ness_long_i, ness_short_i, nes_long_uncond_i, nes_short_uncond_i, t_i, k_i\
+    #             in executor.map(nexpected_shortfall, nexpected_shortfall_calls):
+    #         ness_long.loc[t_i, k_i] = ness_long_i
+    #         ness_short.loc[t_i ,k_i] = ness_short_i
+
+    # print('ness_long: ', ness_long)
+
+    end_time = time.time()
+
+    print('time taken: ', end_time - start_time)
 
 if __name__ == '__main__':
     main()
