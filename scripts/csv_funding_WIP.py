@@ -124,9 +124,8 @@ def nexpected_shortfall(args: tp.Tuple) -> (float, float, float, float):
     }
 
 
-def nexpected_value(a: float, b: float, mu: float, sigma: float,
-                    k_n: float, v: float, g_inv_long: float, cp: float,
-                    g_inv_short: float, t: float) -> (float, float):
+def nexpected_value(args: tp.Tuple) -> (float, float):
+    (a, b, mu, sigma, k_n, v, g_inv_long, cp, g_inv_short, t) = args
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
     oi_imb = ((1-2*k_n)**(np.floor(t/v)))
@@ -143,7 +142,12 @@ def nexpected_value(a: float, b: float, mu: float, sigma: float,
     integral_short, _ = integrate.quad(integrand, -np.inf, g_inv_short)
     nev_short = oi_imb * (2*cdf_x_ginv_one - 1 - integral_short)
 
-    return nev_long, nev_short
+    return {
+        'nev_long': nev_long,
+        'nev_short': nev_short,
+        'k_n': k_n,
+        't': t
+    }
 
 
 def main():
@@ -176,7 +180,7 @@ def main():
 
     # calc k (funding constant)
     g_inv = np.log(1+CP)
-    # g_inv_one = np.log(2)
+    g_inv_one = np.log(2)
     ks = []
     for n in NS:
         fundings = k(dst.contents.alpha, dst.contents.beta,
@@ -195,6 +199,7 @@ def main():
     # For different k values at alpha = 0.05 level (diff n calibs),
     # plot VaR and ES at times into the future
     nvalue_at_risk_calls = []
+    nexpected_value_calls = []
     for t in TS:
         for k_n in df_ks[f"alpha={ALPHA}"]:
             nvalue_at_risk_calls.append(
@@ -204,11 +209,20 @@ def main():
                     k_n, TC, g_inv, ALPHA, t
                 )
             )
+            nexpected_value_calls.append(
+                (
+                    dst.contents.alpha, dst.contents.beta,
+                    dst.contents.mu_1, dst.contents.sigma,
+                    k_n, TC, g_inv, CP,
+                    g_inv_one, t
+                )
+            )
 
     nexpected_shortfall_calls = nvalue_at_risk_calls
 
     nvalue_at_risk_values = []
     nexpected_shortfall_values = []
+    nexpected_value_values = []
 
     start_time = time.time()
 
@@ -226,6 +240,15 @@ def main():
             nexpected_shortfall_values.append(item)
 
     print('nexpected_shortfall_values: ', nexpected_shortfall_values)
+
+    with ProcessPoolExecutor() as executor:
+        for item in executor.map(
+                nexpected_value,
+                nexpected_value_calls
+                ):
+            nexpected_value_values.append(item)
+
+    print('nexpected_value_values: ', nexpected_value_values)
 
     end_time = time.time()
 
