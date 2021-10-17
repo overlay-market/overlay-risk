@@ -84,7 +84,7 @@ def time_averaged_ev(args: tp.Tuple) -> float:
                                t=tau)
 
     integral, integral_err = integrate.quad(integrand, 0, t)
-    print(t,', ', k, ', ', is_long)
+    print(t, ', ', k, ', ', is_long)
     return {
         "tavg_ev": integral / t,
         "k": k,
