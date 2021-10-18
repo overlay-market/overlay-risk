@@ -1,6 +1,6 @@
 # overlay-risk
 
-Risk metrics to inform our choices for per-market funding constants.
+Metrics to inform our choices for per-market risk parameters.
 
 
 ## Assumptions
@@ -16,7 +16,7 @@ where `L(j*T)` has [Levy stable](https://en.wikipedia.org/wiki/Stable_distributi
 
 ## Why?
 
-We need some way to assess the [risk to the system](https://oips.overlay.market/notes/note-4). A good approach is to model the underlying feed value as being driven by a stochastic process, which allows us to estimate "VaR" for passive OVL holders, who act as the counterparty to all unbalanced trades.
+We need some way to assess the risk to the system. A good approach is to model the underlying feed value as being driven by a stochastic process, which allows us to estimate "VaR" for passive OVL holders, who act as the counterparty to all unbalanced trades.
 
 Calculation of our per-market risk metrics requires estimating distributional parameters for the underlying stochastic model. This repo aims to provide easy to access views for those parameters.
 
