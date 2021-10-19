@@ -9,3 +9,4 @@ csv/
 poetry.lock
 logging
 .python-version
+.ipynb_checkpoints
