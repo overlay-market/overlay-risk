@@ -92,20 +92,16 @@ def main():
 
     df = include_prices(df)
     df = include_reserves(df)
-    print("df with prices and reserves", df)
 
     # resample to 15 seconds
     df.set_index('evt_block_time', inplace=True)
     df = df.resample(f'{SECS_PER_BLOCK}s').mean()
     df.ffill(inplace=True)
-    print("df resampled to 15s", df)
 
     df = include_twaps(df, WINDOW_10M)
     df = include_twaps(df, WINDOW_1H)
-    print("df with twaps", df)
 
     df = include_twars(df, WINDOW_10M)
-    print("df with twars", df)
 
     # resample to 1m
     df = df.resample('60s').mean()
