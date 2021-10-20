@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 
-BASE_DIR = "../csv/univ3-data/"
+BASE_DIR = "csv/univ3-data/"
 FILENAME = "univ3-usdceth-03"
 INFILE = f"{BASE_DIR}raw/{FILENAME}.csv"
 OUTFILE = f"{BASE_DIR}clean/{FILENAME}-cleaned.csv"
@@ -11,18 +11,18 @@ DECIMALS_0 = 6
 DECIMALS_1 = 18
 
 SECS_PER_BLOCK = 15  # 15s per block
-WINDOW_10M = 4  # 15s intervals
+WINDOW_10M = 40  # 15s intervals
 WINDOW_1H = 240  # 15s intervals
 
 
-def get_quote(sqrt_price_x96: np.float, is_y_x: bool, amount_in: int) -> int:
+def get_quote(sqrt_price_x96: float, is_y_x: bool, amount_in: int) -> int:
     if is_y_x:
         return int(sqrt_price_x96)**2 * amount_in / (1 << 192)
     else:
         return (1 << 192) * amount_in / int(sqrt_price_x96)**2
 
 
-def get_reserve(sqrt_price_x96: np.float, liquidity: np.float,
+def get_reserve(sqrt_price_x96: float, liquidity: float,
                 is_x: bool) -> int:
     if is_x:
         return (int(liquidity) << 96) / int(sqrt_price_x96)
@@ -83,25 +83,35 @@ def main():
     """
     dtype = {
         'sqrtPriceX96': np.longdouble,
-        'tick': np.int,
+        'tick': int,
         'liquidity': np.longdouble
     }
+    print(f"Reading csv {INFILE}...")
     df = pd.read_csv(INFILE, parse_dates=['evt_block_time'], dtype=dtype)
+    print("df raw", df)
+
     df = include_prices(df)
     df = include_reserves(df)
+    print("df with prices and reserves", df)
 
     # resample to 15 seconds
     df.set_index('evt_block_time', inplace=True)
     df = df.resample(f'{SECS_PER_BLOCK}s').mean()
     df.ffill(inplace=True)
+    print("df resampled to 15s", df)
 
     df = include_twaps(df, WINDOW_10M)
     df = include_twaps(df, WINDOW_1H)
+    print("df with twaps", df)
 
     df = include_twars(df, WINDOW_10M)
+    print("df with twars", df)
 
     # resample to 1m
     df = df.resample('60s').mean()
+    print("df resampled to 60s", df)
+
+    print(f"Writing csv to {OUTFILE}...")
     df.to_csv(OUTFILE)
 
 
