@@ -7,9 +7,9 @@ from scipy import integrate
 
 FILENAME = "data-1625069716_weth-usdc-twap"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-
 KS_FILEPATH = f"csv/metrics/{FILENAME}-ks.csv"
 
+PRICE_COLUMN = 'twap'
 T = 40  # 10m candle size on datafile
 TC = 40  # 10 m compounding period
 CP = 4  # 5x payoff cap
@@ -91,7 +91,7 @@ def main():
     """
     print(f'Analyzing file {FILENAME}')
     df = pd.read_csv(FILEPATH)
-    p = df['c'].to_numpy() if 'c' in df else df['twap']
+    p = df[PRICE_COLUMN].to_numpy()
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from

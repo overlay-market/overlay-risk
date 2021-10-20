@@ -7,6 +7,8 @@ from scipy import integrate
 
 FILENAME = "ethusd_01012020_08232021"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
+
+PRICE_COLUMN = 'c'
 T = 4  # 1m candle size on datafile
 V = 40  # 10 m shorter TWAP
 CP = 4  # 5x payoff cap
@@ -104,7 +106,7 @@ def main():
     """
     print(f'Analyzing file {FILENAME}')
     df = pd.read_csv(FILEPATH)
-    p = df['c'].to_numpy() if 'c' in df else df['twap']
+    p = df[PRICE_COLUMN].to_numpy()
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from
