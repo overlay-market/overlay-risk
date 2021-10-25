@@ -1,18 +1,22 @@
 import pandas as pd
 import numpy as np
+from datetime import timedelta
 
 
 BASE_DIR = "csv/univ3-data/"
-FILENAME = "univ3-usdceth-03"
+FILENAME = "univ3-shibeth-03"
 INFILE = f"{BASE_DIR}raw/{FILENAME}.csv"
-OUTFILE = f"{BASE_DIR}clean/{FILENAME}-cleaned.csv"
+OUTFILE = f"{BASE_DIR}transform/{FILENAME}-cleaned.csv"
 
-DECIMALS_0 = 6
+DECIMALS_0 = 18
 DECIMALS_1 = 18
 
 SECS_PER_BLOCK = 15  # 15s per block
 WINDOW_10M = 40  # 15s intervals
 WINDOW_1H = 240  # 15s intervals
+WINDOW_1D = 5760  # 15s intervals
+
+FILTER_START_DELTA = 3*WINDOW_1D*SECS_PER_BLOCK  # 3d fast forward
 
 
 def get_quote(sqrt_price_x96: float, is_y_x: bool, amount_in: int) -> int:
@@ -30,8 +34,8 @@ def get_reserve(sqrt_price_x96: float, liquidity: float,
         return (int(liquidity) * int(sqrt_price_x96)) / (1 << 96)
 
 
-def get_geo_avg(w: pd.Series, t: float) -> float:
-    return w[0]*np.prod(w/w[0])**(1/t) if len(w) != 0 else np.nan
+def geo_avg(w: pd.Series) -> float:
+    return w[0]*np.prod(w/w[0])**(1/len(w)) if len(w) != 0 else np.nan
 
 
 def include_prices(df: pd.DataFrame) -> pd.DataFrame:
@@ -56,9 +60,9 @@ def include_reserves(df: pd.DataFrame) -> pd.DataFrame:
 
 def include_twaps(df: pd.DataFrame, t: int) -> pd.DataFrame:
     twap0s = df['y/x'].rolling(window=t)\
-        .apply(lambda w: get_geo_avg(w, t), raw=True)
+        .apply(lambda w: geo_avg(w), raw=True)
     twap1s = df['x/y'].rolling(window=t)\
-        .apply(lambda w: get_geo_avg(w, t), raw=True)
+        .apply(lambda w: geo_avg(w), raw=True)
     df[f'y/x twap {SECS_PER_BLOCK*t}s'] = twap0s
     df[f'x/y twap {SECS_PER_BLOCK*t}s'] = twap1s
     return df
@@ -66,9 +70,9 @@ def include_twaps(df: pd.DataFrame, t: int) -> pd.DataFrame:
 
 def include_twars(df: pd.DataFrame, t: int) -> pd.DataFrame:
     twaxs = df['x'].rolling(window=t)\
-        .apply(lambda w: get_geo_avg(w, t), raw=True)
+        .apply(lambda w: geo_avg(w), raw=True)
     tways = df['y'].rolling(window=t)\
-        .apply(lambda w: get_geo_avg(w, t), raw=True)
+        .apply(lambda w: geo_avg(w), raw=True)
     df[f'x twar {SECS_PER_BLOCK*t}s'] = twaxs
     df[f'y twar {SECS_PER_BLOCK*t}s'] = tways
     return df
@@ -95,7 +99,7 @@ def main():
 
     # resample to 15 seconds
     df.set_index('evt_block_time', inplace=True)
-    df = df.resample(f'{SECS_PER_BLOCK}s').mean()
+    df = df.resample(f'{SECS_PER_BLOCK}s').last()
     df.ffill(inplace=True)
 
     df = include_twaps(df, WINDOW_10M)
@@ -104,8 +108,13 @@ def main():
     df = include_twars(df, WINDOW_10M)
 
     # resample to 1m
-    df = df.resample('60s').mean()
+    df = df.resample('60s').last()
     print("df resampled to 60s", df)
+
+    # filter out first few days so no NaNs
+    filter_start = df.index[0] + timedelta(seconds=FILTER_START_DELTA)
+    df = df[df.index > str(filter_start)]
+    print("df filtered", df)
 
     print(f"Writing csv to {OUTFILE}...")
     df.to_csv(OUTFILE)

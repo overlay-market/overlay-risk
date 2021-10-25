@@ -5,8 +5,11 @@ import numpy as np
 from scipy import integrate
 
 
-FILENAME = "ethusd_01012020_08232021"
-FILEPATH = f"csv/{FILENAME}.csv"  # datafile
+BASE_DIR = "csv/ftx-data/"
+FILENAME = "ethusd_01012020_08232021"  # "univ3-usdceth-03-cleaned"
+INDIR = f"{BASE_DIR}filter/"
+INFILE = f"{INDIR}{FILENAME}.csv"  # datafile
+OUTDIR = f"{BASE_DIR}metrics/"
 
 PRICE_COLUMN = 'c'
 T = 4  # 1m candle size on datafile
@@ -104,8 +107,10 @@ def main():
     Fits input csv timeseries data with pystable and generates output
     csv with market impact static spread + slippage params.
     """
-    print(f'Analyzing file {FILENAME}')
-    df = pd.read_csv(FILEPATH)
+    print(f'Analyzing file {INFILE}')
+    df = pd.read_csv(INFILE)
+
+    print(f"Querying price column {PRICE_COLUMN}")
     p = df[PRICE_COLUMN].to_numpy()
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
@@ -134,7 +139,7 @@ def main():
     df_deltas = pd.DataFrame(data=[ALPHAS, deltas]).T
     df_deltas.columns = ['alpha', 'delta']
     print('deltas:', df_deltas)
-    df_deltas.to_csv(f"csv/metrics/{FILENAME}-deltas.csv", index=False)
+    df_deltas.to_csv(f"{OUTDIR}{FILENAME}-deltas.csv", index=False)
 
     # calc lambda (mkt impact)
     ls = []
@@ -148,7 +153,7 @@ def main():
         index=[f"alpha={alpha}" for alpha in ALPHAS]
     )
     print('lambdas:', df_ls)
-    df_ls.to_csv(f"csv/metrics/{FILENAME}-lambdas.csv")
+    df_ls.to_csv(f"{OUTDIR}{FILENAME}-lambdas.csv")
 
 
 if __name__ == '__main__':
