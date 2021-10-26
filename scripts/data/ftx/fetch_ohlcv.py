@@ -3,7 +3,7 @@ import ccxt
 import numpy as np
 
 exchange = ccxt.ftx()
-FILE = 'ethusd_01012020_08232021.csv'
+FILE = 'ftx_ethusd_01012020_08232021.csv'
 
 # Python
 
