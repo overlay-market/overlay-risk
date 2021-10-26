@@ -3,10 +3,10 @@ import numpy as np
 
 
 cg = CoinGeckoAPI()
-FILE = 'coingecko_ethusd_01012020_08232021.csv'
-ID = "ethereum"
-VS = "usd"
-SINCE = 1577854800  # Jan 1, 2020
+FILE = 'coingecko_fwbeth_04012021_08232021.csv'
+ID = "friends-with-benefits-pro"
+VS = "eth"
+SINCE = 1617249600  # April 1, 2021
 UNTIL = 1635206696  # Oct 25, 2021
 LIMIT = 86400*60
 

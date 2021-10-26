@@ -5,11 +5,12 @@ import numpy as np
 from scipy import integrate
 
 
-FILENAME = "data-1625069716_weth-usdc-twap"
+# "data-1625069716_weth-usdc-twap"
+FILENAME = "coingecko-data/coingecko_ethbtc_01012020_08232021"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
 
-PRICE_COLUMN = 'twap'
-T = 40  # 10m candle size on datafile
+PRICE_COLUMN = 'c'
+T = 240  # 1h candle size on datafile
 TC = 40  # 10 m compounding period
 CP = 4  # 5x payoff cap
 
