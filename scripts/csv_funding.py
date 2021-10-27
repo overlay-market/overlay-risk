@@ -5,9 +5,11 @@ import numpy as np
 from scipy import integrate
 
 
-# "data-1625069716_weth-usdc-twap"
-FILENAME = "coingecko-data/coingecko_ethbtc_01012020_08232021"
-FILEPATH = f"csv/{FILENAME}.csv"  # datafile
+BASE_DIR = "csv/coingecko-data/"
+FILENAME = "coingecko_ohmusd_04012021_08232021"
+INDIR = f"{BASE_DIR}"
+INFILE = f"{INDIR}{FILENAME}.csv"  # datafile
+OUTDIR = f"{BASE_DIR}metrics/"
 
 PRICE_COLUMN = 'c'
 T = 240  # 1h candle size on datafile
@@ -18,7 +20,7 @@ CP = 4  # 5x payoff cap
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
 # periods into the future at which we want 1/compoundingFactor to start
 # exceeding VaR from priceFrame: 1/(1-2k)**n >= VaR[(P(n)/P(0) - 1)]
-NS = 480 * np.arange(1, 85)  # 2h, 4h, 6h, ...., 7d
+NS = 240 * np.array([8, 12, 24, 48, 84, 168])  # 8h, 12h, 1d, 2d, 3.5d, 7d
 
 # For plotting nvars
 TS = 240 * np.arange(1, 720)  # 1h, 2h, 3h, ...., 30d
@@ -139,8 +141,8 @@ def main():
     Fits input csv timeseries data with pystable and generates output
     csv with funding constant params.
     """
-    print(f'Analyzing file {FILENAME}')
-    df = pd.read_csv(FILEPATH)
+    print(f'Analyzing file {INFILE}...')
+    df = pd.read_csv(INFILE)
     p = df[PRICE_COLUMN].to_numpy()
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
@@ -178,10 +180,12 @@ def main():
         index=[f"n={n}" for n in NS]
     )
     print('ks:', df_ks)
-    df_ks.to_csv(f"csv/metrics/{FILENAME}-ks.csv")
+    df_ks.to_csv(f"{OUTDIR}{FILENAME}-ks.csv")
 
     # For different k values at alpha = 0.05 level (diff n calibs),
     # plot VaR and ES at times into the future
+    print('Generating timeseries data for VaR, EV, ES ...')
+    print('TS', TS)
     nvars_long = []
     nvars_short = []
     ness_long = []
@@ -189,6 +193,7 @@ def main():
     nevs_long = []
     nevs_short = []
     for t in TS:
+        print('t', t)
         nvar_t_long = []
         nvar_t_short = []
 
@@ -229,16 +234,8 @@ def main():
         nvars_long.append(nvar_t_long)
         nvars_short.append(nvar_t_short)
 
-        print('t', t)
-        print('ness_t_long', ness_t_long)
-        print('ness_t_short', ness_t_short)
-
         ness_long.append(ness_t_long)
         ness_short.append(ness_t_short)
-
-        print('t', t)
-        print('nevs_t_long', nevs_t_long)
-        print('nevs_t_short', nevs_t_short)
 
         nevs_long.append(nevs_t_long)
         nevs_short.append(nevs_t_short)
@@ -256,11 +253,11 @@ def main():
     )
     print(f'nvars long (alpha={ALPHA}):', df_nvars_long)
     df_nvars_long.to_csv(
-        f"csv/metrics/{FILENAME}-nvars-long-alpha-{ALPHA}.csv")
+        f"{OUTDIR}{FILENAME}-nvars-long-alpha-{ALPHA}.csv")
 
     print(f'nvars short (alpha={ALPHA}):', df_nvars_short)
     df_nvars_short.to_csv(
-        f"csv/metrics/{FILENAME}-nvars-short-alpha-{ALPHA}.csv")
+        f"{OUTDIR}{FILENAME}-nvars-short-alpha-{ALPHA}.csv")
 
     # Expected shortfall dataframe to csv
     df_ness_long = pd.DataFrame(
@@ -275,11 +272,11 @@ def main():
     )
     print(f'ness long (alpha={ALPHA}):', df_ness_long)
     df_ness_long.to_csv(
-        f"csv/metrics/{FILENAME}-ness-long-conditional-alpha-{ALPHA}.csv")
+        f"{OUTDIR}{FILENAME}-ness-long-conditional-alpha-{ALPHA}.csv")
 
     print(f'ness short (alpha={ALPHA}):', df_ness_short)
     df_ness_short.to_csv(
-        f"csv/metrics/{FILENAME}-ness-short-conditional-alpha-{ALPHA}.csv")
+        f"{OUTDIR}{FILENAME}-ness-short-conditional-alpha-{ALPHA}.csv")
 
     # Expected value dataframe to csv
     df_nevs_long = pd.DataFrame(
@@ -294,11 +291,11 @@ def main():
     )
     print(f'nevs long (alpha={ALPHA}):', df_nevs_long)
     df_nevs_long.to_csv(
-        f"csv/metrics/{FILENAME}-nevs-long-alpha-{ALPHA}.csv")
+        f"{OUTDIR}{FILENAME}-nevs-long-alpha-{ALPHA}.csv")
 
     print(f'nevs short (alpha={ALPHA}):', df_nevs_short)
     df_nevs_short.to_csv(
-        f"csv/metrics/{FILENAME}-nevs-short-alpha-{ALPHA}.csv")
+        f"{OUTDIR}{FILENAME}-nevs-short-alpha-{ALPHA}.csv")
 
 
 if __name__ == '__main__':

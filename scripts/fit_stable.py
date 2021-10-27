@@ -4,7 +4,7 @@ import numpy as np
 
 
 BASE_DIR = "csv/coingecko-data/"
-FILENAME = "coingecko_ohmusd_04012021_08232021"  # "ethusd_01012020_08232021"
+FILENAME = "coingecko_fwbeth_04012021_08232021"
 INFILE = f"{BASE_DIR}{FILENAME}.csv"
 OUTFILE = f"{BASE_DIR}fit/{FILENAME}-fit.csv"
 

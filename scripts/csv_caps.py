@@ -5,12 +5,15 @@ import numpy as np
 from scipy import integrate
 
 
-FILENAME = "data-1625069716_weth-usdc-twap"
-FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-KS_FILEPATH = f"csv/metrics/{FILENAME}-ks.csv"
+BASE_DIR = "csv/coingecko-data/"
+FILENAME = "coingecko_axseth_01012021_08232021"
+INDIR = f"{BASE_DIR}"
+INFILE = f"{INDIR}{FILENAME}.csv"  # datafile
+OUTDIR = f"{BASE_DIR}metrics/axseth/"
+KS_FILEPATH = f"{OUTDIR}{FILENAME}-ks.csv"
 
-PRICE_COLUMN = 'twap'
-T = 40  # 10m candle size on datafile
+PRICE_COLUMN = 'c'
+T = 240  # 1h candle size on datafile
 TC = 40  # 10 m compounding period
 CP = 4  # 5x payoff cap
 
@@ -18,7 +21,7 @@ CP = 4  # 5x payoff cap
 TS = 5760 * np.array([7, 15, 20, 30])  # 7d, 15d, 20d, 30d (Ti values)
 ALPHA = 0.05
 
-# 20% inflation per year total for all markets
+# 20% inflation for the year total for all markets
 NUM_MARKETS = 5
 INFLATION_PER_YEAR = 0.2
 BLOCKS_PER_YEAR = 5760*365
@@ -89,8 +92,8 @@ def main():
     Fits input csv timeseries data with pystable and generates output
     csv with funding constant params.
     """
-    print(f'Analyzing file {FILENAME}')
-    df = pd.read_csv(FILEPATH)
+    print(f'Analyzing file {INFILE}')
+    df = pd.read_csv(INFILE)
     p = df[PRICE_COLUMN].to_numpy()
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
@@ -114,13 +117,19 @@ def main():
 
     df_ks = pd.read_csv(KS_FILEPATH)
     print('df_ks[ALPHA]', df_ks[f"alpha={ALPHA}"])
+    print('ALPHA', ALPHA)
 
     # inverse cap
     g_inv = np.log(1+CP)
     g_inv_one = np.log(2)
 
+    # TODO: filter ks by subset of anchor times: 1/3d, 1/2d, ..., 3d, 7d
+    # so doesnt take as long
+
     # For different k values at alpha = 0.05 level (diff n calibs),
     # look at time averages of EV for various Ti time periods into the future
+    print('Generating timeseries data for oi caps ...')
+    print('TS', TS)
     tavg_ev_long = []
     tavg_ev_short = []
     for t in TS:
@@ -151,9 +160,6 @@ def main():
         tavg_ev_long.append(tavg_ev_t_long)
         tavg_ev_short.append(tavg_ev_t_short)
 
-        print('tavg_ev_long', tavg_ev_long)
-        print('tavg_ev_short', tavg_ev_short)
-
     # VaR dataframe to csv
     df_tavg_ev_long = pd.DataFrame(
         data=tavg_ev_long,
@@ -167,11 +173,11 @@ def main():
     )
     print(f'tavg ev long (alpha={ALPHA}):', df_tavg_ev_long)
     df_tavg_ev_long.to_csv(
-        f"csv/metrics/{FILENAME}-tavg-ev-long-alpha-{ALPHA}.csv")
+        f"{OUTDIR}{FILENAME}-tavg-ev-long-alpha-{ALPHA}.csv")
 
     print(f'nvars short (alpha={ALPHA}):', df_tavg_ev_short)
     df_tavg_ev_short.to_csv(
-        f"csv/metrics/{FILENAME}-tavg-ev-short-alpha-{ALPHA}.csv")
+        f"{OUTDIR}{FILENAME}-tavg-ev-short-alpha-{ALPHA}.csv")
 
     # Cq estimates with respect to total supply
     # TODO: max bw long and short
@@ -180,7 +186,7 @@ def main():
     def apply_cq(col): return IS / col
     df_cqs = df_tavg_ev.apply(apply_cq)
     print(f'cq (alpha={ALPHA}):', df_cqs)
-    df_cqs.to_csv(f"csv/metrics/{FILENAME}-cq-alpha-{ALPHA}.csv")
+    df_cqs.to_csv(f"{OUTDIR}{FILENAME}-cq-alpha-{ALPHA}.csv")
 
 
 if __name__ == '__main__':
