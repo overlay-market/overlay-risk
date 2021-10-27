@@ -384,7 +384,7 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
                             fit_dist.contents.mu_1], *vars), axis=None)
 
     df = pd.DataFrame(data=data).T
-    df.columns = ['timestamp', 'mu', 'sigSqrd', *var_labels]
+    df.columns = ['timestamp', 'alpha', 'beta', 'sigma', 'mu', *var_labels]
     return df
 
 
