@@ -3,8 +3,8 @@ import numpy as np
 
 
 cg = CoinGeckoAPI()
-FILE = 'coingecko_fwbeth_04012021_08232021.csv'
-ID = "friends-with-benefits-pro"
+FILE = 'coingecko_shibeth_04012021_10252021.csv'
+ID = "shiba-inu"
 VS = "eth"
 SINCE = 1617249600  # April 1, 2021
 UNTIL = 1635206696  # Oct 25, 2021

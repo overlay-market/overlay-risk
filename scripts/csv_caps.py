@@ -19,7 +19,7 @@ CP = 4  # 5x payoff cap
 
 # EV are projected over hour intervals in datafile
 TS = 5760 * np.array([7, 15, 20, 30])  # 7d, 15d, 20d, 30d (Ti values)
-ALPHA = 0.05
+ALPHA = 0.01
 
 # 20% inflation for the year total for all markets
 NUM_MARKETS = 5

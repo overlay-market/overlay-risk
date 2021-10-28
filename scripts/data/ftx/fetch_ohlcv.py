@@ -3,7 +3,7 @@ import ccxt
 import numpy as np
 
 exchange = ccxt.ftx()
-FILE = 'ftx_ethusd_01012020_08232021.csv'
+FILE = 'ftx_shibusd_05122021_10272021.csv'
 
 # Python
 
@@ -12,14 +12,14 @@ async def main():
     if exchange.has['fetchOHLCV']:
         # since = exchange.milliseconds () - 86400000  # -1 day from now
         # alternatively, fetch from a certain starting datetime
-        since = exchange.parse8601('2020-01-01T00:00:00Z')
+        since = exchange.parse8601('2021-05-12T00:00:00Z')
         # alternatively, fetch until current time
         until = exchange.milliseconds()
         # until = exchange.parse8601('2020-08-01T00:00:00Z')
         with open(FILE, 'wb') as f:
             while since < until:
                 print('since', since)
-                symbol = "ETH/USD"  # change for your symbol
+                symbol = "SHIB/USD"  # change for your symbol
                 limit = 1440  # change for your limit
                 ohlcvs = exchange.fetch_ohlcv(
                     symbol=symbol, since=since, limit=limit)

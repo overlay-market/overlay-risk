@@ -6,13 +6,13 @@ from scipy import integrate
 
 
 BASE_DIR = "csv/coingecko-data/"
-FILENAME = "coingecko_ethusd_01012020_08232021"
+FILENAME = "coingecko_axseth_01012021_08232021"
 INDIR = f"{BASE_DIR}"
 INFILE = f"{INDIR}{FILENAME}.csv"  # datafile
 OUTDIR = f"{BASE_DIR}metrics/"
 
 PRICE_COLUMN = 'c'
-T = 240  # 1m candle size on datafile
+T = 240  # 1h candle size on datafile
 V = 40  # 10 m shorter TWAP
 CP = 4  # 5x payoff cap
 

@@ -3,13 +3,13 @@ import pandas as pd
 import numpy as np
 
 
-BASE_DIR = "csv/coingecko-data/"
-FILENAME = "coingecko_fwbeth_04012021_08232021"
+BASE_DIR = "csv/ftx-data/"
+FILENAME = "ftx_shibusd_05122021_10272021"
 INFILE = f"{BASE_DIR}{FILENAME}.csv"
 OUTFILE = f"{BASE_DIR}fit/{FILENAME}-fit.csv"
 
 PRICE_COLUMN = 'c'
-T = 240  # 1h candle size on datafile
+T = 4  # 1m candle size on datafile
 SECS_PER_BLOCK = 15
 
 
