@@ -176,7 +176,7 @@ def index_pair(args: tp.Tuple):
     (write_api, quote, calls, config) = args
 
     print("INDEX PAIR")
-
+    
     with ThreadPoolExecutor() as executor:
         for item in executor.map(read_cumulatives, calls):
             print("item", item)
@@ -241,19 +241,24 @@ def main():
 def get_uni_cumulatives(quotes, query_api, write_api, config, t_end):
     abi = get_uni_abi()
 
-    index_pair_calls = []
     for q in quotes:
-
+        index_pair_calls = []
         q['fields'] = ['tick_cumulative']
         pool = POOL(q['pair'], abi)
         t_start = find_start(query_api, q, config)
         curr_time = datetime.fromtimestamp(t_end)\
             .strftime("%m/%d/%Y, %H:%M:%S")
+
         read_cumulatives_calls = [
             (pool, x) for x in np.arange(t_start, t_end, config['window'])
             ]
+
         index_pair_calls.append((write_api, q, read_cumulatives_calls, config))
 
-    with ThreadPoolExecutor() as executor:
-        for i in executor.map(index_pair, index_pair_calls):
-            print(f'Done executing for timestamp until: {curr_time}')
+        for i in map(index_pair, index_pair_calls):
+            print(
+                f'''
+                Done executing for quote: {q};
+                for timestamp until: {curr_time}
+                '''
+                )
