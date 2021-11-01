@@ -35,7 +35,7 @@ def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
-        "bucket": os.getenv('INFLUXDB_BUCKET', 'ovl_univ3_1h'),
+        "bucket": os.getenv('INFLUXDB_BUCKET', 'ovl_univ3_1m'),
         "url": os.getenv("INFLUXDB_URL"),
         "window": os.getenv("WINDOW", 3600)
     }
@@ -172,52 +172,83 @@ def read_cumulatives(args: tp.Tuple) -> tp.Tuple:
     return (b_t, cum_tick[0], cum_liq[0])
 
 
-def index_pair(args: tp.Tuple):
-    (write_api, quote, calls, config) = args
+def write_cumulatives(args: tp.Tuple):
 
-    print("INDEX PAIR")
+    (write_api, quote, pool, ts, config) = args
+    item = read_cumulatives((pool, ts))
+    print("item", item)
+    print('token0_name', quote['token0_name'])
+    print('token1_name', quote['token1_name'])
+    print("time:", item[0])
+    print('tick_cumulative', float(item[1]))
+    print('liquidity_cumulative', float(item[2]))
 
-    with ThreadPoolExecutor() as executor:
-        for item in executor.map(read_cumulatives, calls):
-            print("item", item)
-            print('token0_name', quote['token0_name'])
-            print('token1_name', quote['token1_name'])
-            print("time:", item[0])
-            print('tick_cumulative', float(item[1]))
-            print('liquidity_cumulative', float(item[2]))
+    point = Point("mem")\
+        .tag("id", quote['id'])\
+        .tag("token0_name", quote['token0_name'])\
+        .tag("token1_name", quote['token1_name'])\
+        .time(
+            datetime.utcfromtimestamp(float(item[0])),
+            WritePrecision.NS
+        )
 
-            point = Point("mem")\
-                .tag("id", quote['id'])\
-                .tag("token0_name", quote['token0_name'])\
-                .tag("token1_name", quote['token1_name'])\
-                .time(
-                    datetime.utcfromtimestamp(float(item[0])),
-                    WritePrecision.NS
-                )
+    point = point.field('tick_cumulative', float(item[1]))
+    point = point.field('liquidity_cumulative', float(item[2]))
 
-            point = point.field('tick_cumulative', float(item[1]))
-            point = point.field('liquidity_cumulative', float(item[2]))
+    retries = 1
+    success = False
+    while not success and retries < 5:
+        try:
+            write_api.write(config['bucket'], config['org'], point)
+            print("written", quote['id'], datetime.fromtimestamp(
+                item[0]).strftime("%m/%d/%Y, %H:%M:%S"))
+            success = True
+        except Exception as e:
+            wait = retries * 10
+            err_cls = e.__class__
+            err_msg = str(e)
+            msg = f'''
+            Error type = {err_cls}
+            Error message = {err_msg}
+            Wait {wait} secs
+            '''
+            print(msg)
+            time.sleep(wait)
+            retries += 1
 
-            retries = 1
-            success = False
-            while not success and retries < 5:
-                try:
-                    write_api.write(config['bucket'], config['org'], point)
-                    print("written", quote['id'], datetime.fromtimestamp(
-                        item[0]).strftime("%m/%d/%Y, %H:%M:%S"))
-                    success = True
-                except Exception as e:
-                    wait = retries * 10
-                    err_cls = e.__class__
-                    err_msg = str(e)
-                    msg = f'''
-                    Error type = {err_cls}
-                    Error message = {err_msg}
-                    Wait {wait} secs
-                    '''
-                    print(msg)
-                    time.sleep(wait)
-                    retries += 1
+
+def get_uni_cumulatives(quotes, query_api, write_api, config, t_end):
+    abi = get_uni_abi()
+    t_step = 500
+
+    for q in quotes:
+
+        q['fields'] = ['tick_cumulative']
+        pool = POOL(q['pair'], abi)
+        batch_size = (t_step * config['window'])
+        t_start = find_start(query_api, q, config) - batch_size
+        t_interm = t_start + batch_size
+
+        while t_start < t_end:
+            write_cumulatives_calls = [
+                (write_api, q, pool, x, config)
+                for x in np.arange(
+                    t_start,
+                    t_interm,
+                    config['window']
+                    )
+                ]
+
+            with ThreadPoolExecutor() as executor:
+                executor.map(
+                        write_cumulatives,
+                        write_cumulatives_calls
+                        )
+
+            t_start = t_interm
+            t_interm = t_start + batch_size
+            if t_interm > t_end:
+                t_interm = t_end
 
 
 def main():
@@ -236,24 +267,3 @@ def main():
     while t_end <= time.time():
         get_uni_cumulatives(quotes, query_api, write_api, config, t_end)
         t_end = math.floor(time.time())
-
-
-def get_uni_cumulatives(quotes, query_api, write_api, config, t_end):
-    abi = get_uni_abi()
-
-    index_pair_calls = []
-    for q in quotes:
-
-        q['fields'] = ['tick_cumulative']
-        pool = POOL(q['pair'], abi)
-        t_start = find_start(query_api, q, config)
-        curr_time = datetime.fromtimestamp(t_end)\
-            .strftime("%m/%d/%Y, %H:%M:%S")
-        read_cumulatives_calls = [
-            (pool, x) for x in np.arange(t_start, t_end, config['window'])
-            ]
-        index_pair_calls.append((write_api, q, read_cumulatives_calls, config))
-
-    with ThreadPoolExecutor() as executor:
-        for i in executor.map(index_pair, index_pair_calls):
-            print(f'Done executing for timestamp until: {curr_time}')
