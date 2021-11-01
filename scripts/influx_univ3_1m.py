@@ -219,23 +219,36 @@ def write_cumulatives(args: tp.Tuple):
 
 def get_uni_cumulatives(quotes, query_api, write_api, config, t_end):
     abi = get_uni_abi()
+    t_step = 500
 
     for q in quotes:
 
         q['fields'] = ['tick_cumulative']
         pool = POOL(q['pair'], abi)
-        t_start = find_start(query_api, q, config)
+        batch_size = (t_step * config['window'])
+        t_start = find_start(query_api, q, config) - batch_size
+        t_interm = t_start + batch_size
 
-        write_cumulatives_calls = [
-            (write_api, q, pool, x, config)
-            for x in np.arange(t_start, t_end, config['window'])
-            ]
-
-        with ThreadPoolExecutor() as executor:
-            executor.map(
-                    write_cumulatives,
-                    write_cumulatives_calls
+        while t_start < t_end:
+            write_cumulatives_calls = [
+                (write_api, q, pool, x, config)
+                for x in np.arange(
+                    t_start,
+                    t_interm,
+                    config['window']
                     )
+                ]
+
+            with ThreadPoolExecutor() as executor:
+                executor.map(
+                        write_cumulatives,
+                        write_cumulatives_calls
+                        )
+
+            t_start = t_interm
+            t_interm = t_start + batch_size
+            if t_interm > t_end:
+                t_interm = t_end
 
 
 def main():
