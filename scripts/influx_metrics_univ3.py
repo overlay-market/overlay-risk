@@ -199,6 +199,7 @@ def get_price_cumulatives(
         from(bucket:"{bucket}")
             |> range(start: -{points}d)
             |> filter(fn: (r) => r["_measurement"] == "mem")
+            |> filter(fn: (r) => r["_field"] == "tick_cumulative")
             |> filter(fn: (r) => r["id"] == "{qid}")
     '''
     df = query_api.query_data_frame(query=query, org=org)
@@ -439,7 +440,7 @@ def main():
                     f"data, therefore it is not being ingested "
                     f"to {config['bucket']}"
                 )
-                # continue
+                # continue  # TODO: uncomment continue in production code
 
             twaps = get_twaps(pcs, q, params)
             print('timestamp', timestamp)
