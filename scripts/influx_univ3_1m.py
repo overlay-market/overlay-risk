@@ -185,8 +185,8 @@ def list_cumulatives(args: tp.Tuple) -> tp.Tuple:
 
     return (
         datetime.utcfromtimestamp(float(item[0])),
-        item[1],
-        item[2],
+        float(item[1]),
+        float(item[2]),
         quote['token0_name'],
         quote['token1_name'],
         quote['id']
@@ -249,7 +249,6 @@ def get_uni_cumulatives(quotes, query_api, config, t_end):
 
     for q in quotes:
 
-        q['fields'] = ['tick_cumulative']
         pool = POOL(q['pair'], abi)
         batch_size = (t_step * config['window'])
         t_start = find_start(query_api, q, config)
