@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from brownie import network, Contract
 from datetime import datetime
 
-from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
 
 BLOCK_SUBGRAPH_ENDPOINT = "https://api.thegraph.com/subgraphs/name/decentraland/blocks-ethereum-mainnet"  # noqa
@@ -214,7 +214,7 @@ def write_cumulatives(config, vals):
             org=config['org']
             ) as client:
 
-        print("Ingest DataFrame with default tags")
+        print("Start ingestion")
 
         write_api = client.write_api(
             write_options=SYNCHRONOUS, point_settings=get_point_settings())
@@ -245,7 +245,7 @@ def write_cumulatives(config, vals):
 
 def get_uni_cumulatives(quotes, query_api, config, t_end):
     abi = get_uni_abi()
-    t_step = 500  # TODO: changes this back to 500
+    t_step = 50  # TODO: changes this back to 500
 
     for q in quotes:
 
@@ -293,4 +293,6 @@ def main():
     while True:
         get_uni_cumulatives(quotes, query_api, config, t_end)
         t_end = math.floor(time.time())
-        time.sleep(30)
+        sl_time = config['window']
+        print(f'Wait {sl_time} secs')
+        time.sleep(sl_time)
