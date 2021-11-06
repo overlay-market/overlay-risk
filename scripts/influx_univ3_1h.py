@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import os
 import json
 import typing as tp
@@ -11,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from brownie import network, Contract
 from datetime import datetime
 
-from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
 
 BLOCK_SUBGRAPH_ENDPOINT = "https://api.thegraph.com/subgraphs/name/decentraland/blocks-ethereum-mainnet"  # noqa
@@ -35,7 +36,7 @@ def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
-        "bucket": os.getenv('INFLUXDB_BUCKET', 'ovl_univ3_1m'),
+        "bucket": os.getenv('INFLUXDB_BUCKET', 'ovl_univ3_1h'),
         "url": os.getenv("INFLUXDB_URL"),
         "window": os.getenv("WINDOW", 3600)
     }
@@ -141,6 +142,7 @@ def find_start(api, quote, config) -> int:
                 from(bucket:"{config['bucket']}")
                     |> range(start:0, stop: now())
                     |> filter(fn: (r) => r["id"] == "{quote['id']}")
+                    |> filter(fn: (r) => r["_field"] == "tick_cumulative")
                     |> last()
             ''')
             success = True
@@ -172,66 +174,91 @@ def read_cumulatives(args: tp.Tuple) -> tp.Tuple:
     return (b_t, cum_tick[0], cum_liq[0])
 
 
-def write_cumulatives(args: tp.Tuple):
+def list_cumulatives(args: tp.Tuple) -> tp.Tuple:
 
-    (write_api, quote, pool, ts, config) = args
+    (quote, pool, ts) = args
     item = read_cumulatives((pool, ts))
     print("item", item)
-    print('token0_name', quote['token0_name'])
-    print('token1_name', quote['token1_name'])
-    print("time:", item[0])
-    print('tick_cumulative', float(item[1]))
-    print('liquidity_cumulative', float(item[2]))
+    print('time', datetime.fromtimestamp(
+                item[0]).strftime("%m/%d/%Y, %H:%M:%S"))
+    print('quote', quote['id'])
 
-    point = Point("mem")\
-        .tag("id", quote['id'])\
-        .tag("token0_name", quote['token0_name'])\
-        .tag("token1_name", quote['token1_name'])\
-        .time(
-            datetime.utcfromtimestamp(float(item[0])),
-            WritePrecision.NS
+    return (
+        datetime.utcfromtimestamp(float(item[0])),
+        float(item[1]),
+        float(item[2]),
+        quote['token0_name'],
+        quote['token1_name'],
+        quote['id']
         )
 
-    point = point.field('tick_cumulative', float(item[1]))
-    point = point.field('liquidity_cumulative', float(item[2]))
 
-    retries = 1
-    success = False
-    while not success and retries < 5:
-        try:
-            write_api.write(config['bucket'], config['org'], point)
-            print("written", quote['id'], datetime.fromtimestamp(
-                item[0]).strftime("%m/%d/%Y, %H:%M:%S"))
-            success = True
-        except Exception as e:
-            wait = retries * 10
-            err_cls = e.__class__
-            err_msg = str(e)
-            msg = f'''
-            Error type = {err_cls}
-            Error message = {err_msg}
-            Wait {wait} secs
-            '''
-            print(msg)
-            time.sleep(wait)
-            retries += 1
+def write_cumulatives(config, vals):
+
+    df = pd.DataFrame(
+            vals,
+            columns=[
+                '_time',
+                'tick_cumulative',
+                'liquidity_cumulative',
+                'token0_name',
+                'token1_name',
+                'id'
+                ]
+            )
+    df = df.set_index("_time")
+
+    with InfluxDBClient(
+            url=config['url'],
+            token=config['token'],
+            org=config['org']
+            ) as client:
+
+        print("Start ingestion")
+
+        write_api = client.write_api(
+            write_options=SYNCHRONOUS, point_settings=get_point_settings())
+
+        j = 1
+        while j == 1:
+            try:
+                write_api.write(bucket=config['bucket'],
+                                record=df,
+                                data_frame_measurement_name="mem",
+                                data_frame_tag_columns=[
+                                    'id', 'token0_name', 'token1_name'
+                                    ]
+                                )
+                j = 0
+                print("Ingested to influxdb")
+            except Exception as e:
+                err_cls = e.__class__
+                err_msg = str(e)
+                msg = f'''
+                Error type = {err_cls}
+                Error message = {err_msg}
+                Wait 5 secs
+                '''
+                print(msg)
+                continue
 
 
-def get_uni_cumulatives(quotes, query_api, write_api, config, t_end):
+def get_uni_cumulatives(quotes, query_api, config, t_end):
     abi = get_uni_abi()
-    t_step = 500
+    t_step = 50  # TODO: changes this back to 500
 
     for q in quotes:
 
-        q['fields'] = ['tick_cumulative']
         pool = POOL(q['pair'], abi)
         batch_size = (t_step * config['window'])
-        t_start = find_start(query_api, q, config) - batch_size
+        t_start = find_start(query_api, q, config)
         t_interm = t_start + batch_size
+        if t_interm > t_end:
+            t_interm = t_end
 
         while t_start < t_end:
-            write_cumulatives_calls = [
-                (write_api, q, pool, x, config)
+            list_cumulatives_calls = [
+                (q, pool, x)
                 for x in np.arange(
                     t_start,
                     t_interm,
@@ -239,12 +266,14 @@ def get_uni_cumulatives(quotes, query_api, write_api, config, t_end):
                     )
                 ]
 
+            list_cumulatives_vals = []
             with ThreadPoolExecutor() as executor:
-                executor.map(
-                        write_cumulatives,
-                        write_cumulatives_calls
-                        )
+                for item in executor.map(
+                                        list_cumulatives,
+                                        list_cumulatives_calls):
+                    list_cumulatives_vals.append(item)
 
+            write_cumulatives(config, list_cumulatives_vals)
             t_start = t_interm
             t_interm = t_start + batch_size
             if t_interm > t_end:
@@ -258,12 +287,11 @@ def main():
     quotes = get_quotes()
     client = create_client(config)
     query_api = client.query_api()
-    write_api = client.write_api(
-        write_options=SYNCHRONOUS,
-        point_settings=get_point_settings()
-    )
 
     t_end = math.floor(time.time())
-    while t_end <= time.time():
-        get_uni_cumulatives(quotes, query_api, write_api, config, t_end)
+    while True:
+        get_uni_cumulatives(quotes, query_api, config, t_end)
         t_end = math.floor(time.time())
+        sl_time = config['window']
+        print(f'Wait {sl_time} secs')
+        time.sleep(sl_time)
