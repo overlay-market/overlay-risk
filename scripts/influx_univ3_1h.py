@@ -295,6 +295,6 @@ def main():
     while True:
         get_uni_cumulatives(quotes, query_api, config, t_end)
         t_end = math.floor(time.time())
-        sl_time = config['window']
+        sl_time = config['window']/4
         print(f'Wait {sl_time} secs')
         time.sleep(sl_time)
