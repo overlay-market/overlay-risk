@@ -5,6 +5,8 @@ import json
 import pystable
 import typing as tp
 import logging
+import math
+import time
 
 from datetime import datetime, timedelta
 
@@ -73,14 +75,15 @@ def get_params() -> tp.Dict:
     Outputs:
         [tp.Dict]
         points  [int]:          1 mo of data behind to estimate MLEs
-        window  [int]:          1h TWAPs (assuming `ovl_sushi` ingested every
-                                10m)
-        period  [int]:          10m periods [s]
+        window  [int]:          1h TWAPs
+        period  [int]:          60m periods [s]
         tolerance  [int]:       Tolerance within which `period` can
-                                be inaccurate
+                                be inaccurate [minutes]
         alpha   List[float]:    alpha uncertainty in VaR calc
         n:      List[int]:      number of periods into the future over which
                                 VaR is calculated
+        data_start [int]:       start calculating metrics from these many days
+                                ago
     '''
     return {
         "points": 30,
@@ -89,6 +92,7 @@ def get_params() -> tp.Dict:
         "tolerance": 10,
         "alpha": [0.05, 0.01, 0.001, 0.0001],
         "n": [144, 1008, 2016, 4320],
+        "data_start": 30
     }
 
 
@@ -136,11 +140,84 @@ def get_price_fields() -> (str, str):
     return 'tick_cumulative'
 
 
+def find_start(api, quote, config, params) -> int:
+
+    retries = 1
+    success = False
+    while not success and retries < 5:
+        try:
+            r = api.query_data_frame(org=config['org'], query=f'''
+                from(bucket:"{config['bucket']}")
+                    |> range(start:0, stop: now())
+                    |> filter(fn: (r) => r["id"] == "{quote['id']}")
+                    |> last()
+            ''')
+            success = True
+        except Exception as e:
+            wait = retries * 10
+            err_cls = e.__class__
+            err_msg = str(e)
+            msg = f'''
+            Error type = {err_cls}
+            Error message = {err_msg}
+            Wait {wait} secs
+            '''
+            print(msg)
+            time.sleep(wait)
+            retries += 1
+
+    if (len(r.index) > 0):
+        return math.floor(datetime.timestamp(
+            r.iloc[0]['_time']))
+    else:
+        return math.floor(
+                int(
+                    datetime.timestamp(
+                        datetime.now() - timedelta(days=params['data_start'])
+                        )
+                    )
+                )
+
+
+def list_of_timestamps(api, quote, config, start_ts) -> tp.List:
+    retries = 1
+    success = False
+    now_ts = math.floor(int(datetime.timestamp(datetime.now())))
+    while not success and retries < 5:
+        try:
+            r = api.query_data_frame(org=config['org'], query=f'''
+                from(bucket:"{config['source']}")
+                    |> range(start:{start_ts+1}, stop: {now_ts})
+                    |> filter(fn: (r) => r["id"] == "{quote['id']}")
+                    |> filter(fn: (r) => r["_field"] == "tick_cumulative")
+                    |> keep(columns: ["_time"])
+            ''')
+            success = True
+        except Exception as e:
+            wait = retries * 10
+            err_cls = e.__class__
+            err_msg = str(e)
+            msg = f'''
+            Error type = {err_cls}
+            Error message = {err_msg}
+            Wait {wait} secs
+            '''
+            print(msg)
+            time.sleep(wait)
+            retries += 1
+
+    if r.shape[0] == 0:
+        return [0]
+    else:
+        return list(r['_time'])
+
+
 def get_price_cumulatives(
         query_api,
         cfg: tp.Dict,
         q: tp.Dict,
-        p: tp.Dict) -> (int, tp.List[pd.DataFrame]):
+        p: tp.Dict,
+        end_time: int) -> (int, tp.List[pd.DataFrame]):
     '''
     Fetches `historical time series of priceCumulative` values for the last
     `params['points']` number of days for id `quote['id']` from the config
@@ -193,11 +270,13 @@ def get_price_cumulatives(
     points = p['points']
     bucket = cfg['source']
     org = cfg['org']
-
+    start_time = end_time - timedelta(seconds=(points*24*60*60))
+    start_time = int(datetime.timestamp(start_time))
+    end_time = int(datetime.timestamp(end_time))
     print(f'Fetching prices for {qid} ...')
     query = f'''
         from(bucket:"{bucket}")
-            |> range(start: -{points}d)
+            |> range(start: {start_time}, stop: {end_time + 1})
             |> filter(fn: (r) => r["_measurement"] == "mem")
             |> filter(fn: (r) => r["_field"] == "tick_cumulative")
             |> filter(fn: (r) => r["id"] == "{qid}")
@@ -206,7 +285,6 @@ def get_price_cumulatives(
     if type(df) == list:
         df = pd.concat(df, ignore_index=True)
 
-    # print('df: ', df)
     # Filter then separate the df into p0c and p1c dataframes
     df_filtered = df.filter(items=['_time', '_field', '_value'])
     pc_field = get_price_fields()
@@ -270,8 +348,8 @@ def get_twap(pc: pd.DataFrame, q: tp.Dict, p: tp.Dict) -> pd.DataFrame:
     window = p['window']
     period = p['period']
     tolerance = p['tolerance']
-    upper_limit = window + tolerance
-    lower_limit = window - tolerance
+    upper_limit = (window + tolerance) * 60
+    lower_limit = (window - tolerance) * 60
 
     max_rows = ((window/period)+1) * 2
 
@@ -422,58 +500,70 @@ def main():
         point_settings=get_point_settings(),
     )
 
-    for q in quotes:
-        print('id', q['id'])
-        try:
-            timestamp, pcs = get_price_cumulatives(query_api, config, q,
-                                                   params)
-            # Calculate difference between max and min date.
-            data_days = pcs[0]['_time'].max() - pcs[0]['_time'].min()
-            print(
-                f"Number of days between latest and first "
-                f"data point: {data_days}"
-            )
-
-            if data_days < timedelta(days=params['points']-1):
-                print(
-                    f"This pair has less than {params['points']-1} days of "
-                    f"data, therefore it is not being ingested "
-                    f"to {config['bucket']}"
-                )
-                # continue  # TODO: uncomment continue in production code
-
-            twaps = get_twaps(pcs, q, params)
-            print('timestamp', timestamp)
-            print('twaps', twaps)
-
-            # Calc stats for each twap (NOT inverse of each other)
-            samples = get_samples_from_twaps(twaps)
-            stats = get_stats(timestamp, samples, params)
-            print('stats', stats)
-
-            for i, stat in enumerate(stats):
-                token_name = q[f'token{i}_name']
-                point = Point("mem")\
-                    .tag("id", q['id'])\
-                    .tag('token_name', token_name)\
-                    .tag("_type", f"price{i}Cumulative")\
-                    .time(
-                        datetime.utcfromtimestamp(float(stat['timestamp'])),
-                        WritePrecision.NS
+    while True:
+        for q in quotes:
+            print('id', q['id'])
+            start_ts = find_start(query_api, q, config, params)
+            ts_list = list_of_timestamps(query_api, q, config, start_ts)
+            if ts_list[0] == 0:
+                continue
+            for ts in ts_list:
+                try:
+                    timestamp, pcs = get_price_cumulatives(
+                                        query_api,
+                                        config,
+                                        q,
+                                        params,
+                                        ts)
+                    # Calculate difference between max and min date.
+                    data_days = pcs[0]['_time'].max() - pcs[0]['_time'].min()
+                    print(
+                        f"Number of days between latest and first "
+                        f"data point: {data_days}"
                     )
 
-                for col in stat.columns:
-                    if col != 'timestamp':
-                        point = point.field(col, float(stat[col]))
+                    if data_days < timedelta(days=params['points']-1):
+                        print(
+                            f"The pair has less than {params['points']-1}d of"
+                            f"data, therefore it is not being ingested"
+                            f"to {config['bucket']}"
+                        )
+                        continue
 
-                print(f"Writing {q['id']} for price{i}Cumulative to api ...")
-                write_api.write(config['bucket'], config['org'], point)
+                    twaps = get_twaps(pcs, q, params)
+                    print('timestamp', timestamp)
+                    print('twaps', twaps)
 
-        except Exception as e:
-            print("Failed to write quote stats to influx")
-            logging.exception(e)
+                    # Calc stats for each twap (NOT inverse of each other)
+                    samples = get_samples_from_twaps(twaps)
+                    stats = get_stats(timestamp, samples, params)
+                    print('stats', stats)
+                    for i, stat in enumerate(stats):
+                        token_name = q[f'token{i}_name']
+                        point = Point("mem")\
+                            .tag("id", q['id'])\
+                            .tag('token_name', token_name)\
+                            .tag("_type", f"price{i}Cumulative")\
+                            .time(
+                                datetime.utcfromtimestamp(
+                                        float(stat['timestamp'])
+                                        ),
+                                WritePrecision.NS
+                            )
 
-    client.close()
+                        for col in stat.columns:
+                            if col != 'timestamp':
+                                point = point.field(col, float(stat[col]))
+
+                        print(f"Writing {q['id']} for price{i}Cumulative...")
+                        write_api.write(config['bucket'], config['org'], point)
+
+                except Exception as e:
+                    print("Failed to write quote stats to influx")
+                    logging.exception(e)
+
+        print("Metrics are up to date. Wait 5 mins.")
+        time.sleep(300)
 
 
 if __name__ == '__main__':

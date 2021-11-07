@@ -10,7 +10,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 
 from brownie import network, Contract
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
@@ -163,7 +163,10 @@ def find_start(api, quote, config) -> int:
         return math.floor(datetime.timestamp(
             r.iloc[0]['_time']))
     else:
-        return quote['time_deployed'] + 1200
+        # return quote['time_deployed'] + 1200
+        return math.floor(
+            int(datetime.timestamp(datetime.now() - timedelta(days=60)))
+            )
 
 
 def read_cumulatives(args: tp.Tuple) -> tp.Tuple:
@@ -245,7 +248,7 @@ def write_cumulatives(config, vals):
 
 def get_uni_cumulatives(quotes, query_api, config, t_end):
     abi = get_uni_abi()
-    t_step = 50  # TODO: changes this back to 500
+    t_step = 500
 
     for q in quotes:
 
