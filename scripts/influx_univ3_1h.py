@@ -38,7 +38,7 @@ def get_config() -> tp.Dict:
         "org": os.getenv('INFLUXDB_ORG'),
         "bucket": os.getenv('INFLUXDB_BUCKET', 'ovl_univ3_1h'),
         "url": os.getenv("INFLUXDB_URL"),
-        "window": os.getenv("WINDOW", 3600)
+        "window": os.getenv("WINDOW", 600)
     }
 
 
