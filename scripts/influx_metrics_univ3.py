@@ -88,7 +88,7 @@ def get_params() -> tp.Dict:
     return {
         "points": 30,
         "window": 60,
-        "period": 60,
+        "period": 10,
         "tolerance": 10,
         "alpha": [0.05, 0.01, 0.001, 0.0001],
         "n": [144, 1008, 2016, 4320],
