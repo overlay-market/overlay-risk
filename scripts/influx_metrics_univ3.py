@@ -489,7 +489,6 @@ def get_stats(
 
 # SEE: get_params() for more info on setup
 def main():
-    print("You are using data from the mainnet network")
     config = get_config()
     params = get_params()
     quotes = get_quotes()

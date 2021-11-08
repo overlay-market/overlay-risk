@@ -2,8 +2,8 @@ import os
 
 
 def job():
-    print("Running Brownie script influx_metrics_univ3.py")
-    os.system("brownie run influx_metrics_univ3")
+    print("Running script influx_metrics_univ3.py")
+    os.system("python scripts/influx_metrics_univ3.py")
 
 
 while True:
