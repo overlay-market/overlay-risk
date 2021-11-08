@@ -530,13 +530,13 @@ def main():
                         continue
 
                     twaps = get_twaps(pcs, q, params)
-                    print('timestamp', timestamp)
-                    print('twaps', twaps)
+                    print('timestamp: ', datetime.fromtimestamp(timestamp))
 
                     # Calc stats for each twap (NOT inverse of each other)
                     samples = get_samples_from_twaps(twaps)
                     stats = get_stats(timestamp, samples, params)
-                    print('stats', stats)
+                    print('stats_0: ', stats[0].T)
+                    print('stats_1: ', stats[1].T)
                     for i, stat in enumerate(stats):
                         token_name = q[f'token{i}_name']
                         point = Point("mem")\

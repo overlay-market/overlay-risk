@@ -254,7 +254,7 @@ def get_uni_cumulatives(quotes, query_api, config, t_end):
 
         pool = POOL(q['pair'], abi)
         batch_size = (t_step * config['window'])
-        t_start = find_start(query_api, q, config)
+        t_start = find_start(query_api, q, config) + 1
         t_interm = t_start + batch_size
         if t_interm > t_end:
             t_interm = t_end
