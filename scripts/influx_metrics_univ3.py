@@ -318,7 +318,7 @@ def dynamic_window(
         df[i] =\
             (pd.to_datetime(df['_time']) - pd.to_datetime(df['lag_time']))\
             .dt.total_seconds()
-        df[i] = abs(df[i] - window)
+        df[i] = abs(df[i] - (window * 60))
         df.drop(['lag_time'], axis=1, inplace=True)
 
     min_df = df[[i for i in range(1, int(max_rows+1))]]\
