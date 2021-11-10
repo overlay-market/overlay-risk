@@ -443,7 +443,7 @@ def calc_vars(alpha: float, beta: float, sigma: float, mu: float, t: int,
 
 def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
              ) -> pd.DataFrame:
-    t = p["period"]
+    t = p["period"] * 60
 
     # mles
     rs = [np.log(sample[i]/sample[i-1]) for i in range(1, len(sample), 1)]
