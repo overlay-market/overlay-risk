@@ -451,11 +451,11 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
     # Gaussian Fit
     fit = {'alpha': 2, 'beta': 0, 'sigma': 1, 'mu': 0, 'parameterization': 1}
 
-    # Check fit validity
-    print(pystable.checkparams(fit['alpha'], fit['beta'], fit['sigma'],
-                               fit['mu'], fit['parameterization']))
-    fit_dist = pystable.create(fit['alpha'], fit['beta'], fit['sigma'],
-                               fit['mu'], fit['parameterization'])
+    # # Check fit validity
+    # print(pystable.checkparams(fit['alpha'], fit['beta'], fit['sigma'],
+    #                            fit['mu'], fit['parameterization']))
+    # fit_dist = pystable.create(fit['alpha'], fit['beta'], fit['sigma'],
+    #                            fit['mu'], fit['parameterization'])
 
     pystable.fit(fit_dist, rs, len(rs))
 
@@ -516,10 +516,6 @@ def main():
                                         ts)
                     # Calculate difference between max and min date.
                     data_days = pcs[0]['_time'].max() - pcs[0]['_time'].min()
-                    print(
-                        f"Number of days between latest and first "
-                        f"data point: {data_days}"
-                    )
 
                     if data_days < timedelta(days=params['points']-1):
                         print(
@@ -535,8 +531,6 @@ def main():
                     # Calc stats for each twap (NOT inverse of each other)
                     samples = get_samples_from_twaps(twaps)
                     stats = get_stats(timestamp, samples, params)
-                    print('stats_0: ', stats[0].T)
-                    print('stats_1: ', stats[1].T)
                     for i, stat in enumerate(stats):
                         token_name = q[f'token{i}_name']
                         point = Point("mem")\
