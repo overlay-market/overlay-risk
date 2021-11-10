@@ -454,8 +454,8 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
     # # Check fit validity
     # print(pystable.checkparams(fit['alpha'], fit['beta'], fit['sigma'],
     #                            fit['mu'], fit['parameterization']))
-    # fit_dist = pystable.create(fit['alpha'], fit['beta'], fit['sigma'],
-    #                            fit['mu'], fit['parameterization'])
+    fit_dist = pystable.create(fit['alpha'], fit['beta'], fit['sigma'],
+                               fit['mu'], fit['parameterization'])
 
     pystable.fit(fit_dist, rs, len(rs))
 
