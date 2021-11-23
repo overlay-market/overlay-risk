@@ -159,9 +159,7 @@ def find_start(api, quote, config) -> int:
             time.sleep(wait)
             retries += 1
 
-    return math.floor(
-            int(datetime.timestamp(datetime.now() - timedelta(days=100)))
-            )
+    return int(1620604800)  # 10th May 2021
 
 
 def read_cumulatives(args: tp.Tuple) -> tp.Tuple:
