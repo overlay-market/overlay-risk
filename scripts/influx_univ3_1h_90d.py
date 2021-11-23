@@ -284,5 +284,5 @@ def main():
     client = create_client(config)
     query_api = client.query_api()
 
-    t_end = 1631343947
+    t_end = 1627948800  # Up till 3rd August
     get_uni_cumulatives(quotes, query_api, config, t_end)
