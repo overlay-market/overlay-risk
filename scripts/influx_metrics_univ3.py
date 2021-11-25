@@ -86,7 +86,7 @@ def get_params() -> tp.Dict:
                                 ago
     '''
     return {
-        "points": 30,
+        "points": 90,
         "window": 60,
         "period": 10,
         "tolerance": 10,
@@ -217,6 +217,7 @@ def get_price_cumulatives(
         cfg: tp.Dict,
         q: tp.Dict,
         p: tp.Dict,
+        start_time: int,
         end_time: int) -> (int, tp.List[pd.DataFrame]):
     '''
     Fetches `historical time series of priceCumulative` values for the last
@@ -270,7 +271,7 @@ def get_price_cumulatives(
     points = p['points']
     bucket = cfg['source']
     org = cfg['org']
-    start_time = end_time - timedelta(seconds=(points*24*60*60))
+    start_time = start_time - timedelta(seconds=(points*24*60*60))
     start_time = int(datetime.timestamp(start_time))
     end_time = int(datetime.timestamp(end_time))
     print(f'Fetching prices for {qid} ...')
@@ -280,6 +281,7 @@ def get_price_cumulatives(
             |> filter(fn: (r) => r["_measurement"] == "mem")
             |> filter(fn: (r) => r["_field"] == "tick_cumulative")
             |> filter(fn: (r) => r["id"] == "{qid}")
+            |> keep(columns: ["_time", "_field", "_value"])
     '''
     df = query_api.query_data_frame(query=query, org=org)
     if type(df) == list:
@@ -314,11 +316,13 @@ def dynamic_window(
     '''
 
     for i in range(1, int(max_rows+1)):
-        df['lag_time'] = df[['_time']].shift(i)
-        df[i] =\
-            (pd.to_datetime(df['_time']) - pd.to_datetime(df['lag_time']))\
+        df.loc[:, 'lag_time'] = df.loc[:, '_time'].shift(i)
+        df.loc[:, i] =\
+            (pd.to_datetime(df.loc[:, '_time'])
+             - pd.to_datetime(df.loc[:, 'lag_time']))\
             .dt.total_seconds()
-        df[i] = abs(df[i] - (window * 60))
+        df.loc[:, i] = abs(df.loc[:, i] - (window * 60))
+
         df.drop(['lag_time'], axis=1, inplace=True)
 
     min_df = df[[i for i in range(1, int(max_rows+1))]]\
@@ -452,8 +456,6 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
     fit = {'alpha': 2, 'beta': 0, 'sigma': 1, 'mu': 0, 'parameterization': 1}
 
     # # Check fit validity
-    # print(pystable.checkparams(fit['alpha'], fit['beta'], fit['sigma'],
-    #                            fit['mu'], fit['parameterization']))
     fit_dist = pystable.create(fit['alpha'], fit['beta'], fit['sigma'],
                                fit['mu'], fit['parameterization'])
 
@@ -506,14 +508,26 @@ def main():
             ts_list = list_of_timestamps(query_api, q, config, start_ts)
             if ts_list[0] == 0:
                 continue
+            first_ts, last_ts = ts_list[0], ts_list[len(ts_list)-1]
+            _, pcs_all = get_price_cumulatives(query_api,
+                                               config,
+                                               q,
+                                               params,
+                                               first_ts,
+                                               last_ts)
+            lookb_wndw = params['points']*24*60*60
             for ts in ts_list:
                 try:
-                    timestamp, pcs = get_price_cumulatives(
-                                        query_api,
-                                        config,
-                                        q,
-                                        params,
-                                        ts)
+                    timestamp = int(ts.timestamp())
+                    pcs = [
+                           pcs_all[0][(pcs_all[0]['_time'] >= ts
+                                       - timedelta(seconds=(lookb_wndw)))
+                                      & (pcs_all[0]['_time'] <= ts)].copy(),
+                           pcs_all[1][(pcs_all[1]['_time'] >= ts
+                                       - timedelta(seconds=(lookb_wndw)))
+                                      & (pcs_all[1]['_time'] <= ts)].copy()
+                           ]
+
                     # Calculate difference between max and min date.
                     data_days = pcs[0]['_time'].max() - pcs[0]['_time'].min()
 
