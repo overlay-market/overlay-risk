@@ -33,8 +33,7 @@ class TestInfluxMetrics(unittest.TestCase):
 
         return df
 
-    def get_pc_dfs(self, df: pd.DataFrame,
-                   start_time: int, end_time: int) -> tp.List[pd.DataFrame]:
+    def get_pc_dfs(self, df: pd.DataFrame) -> tp.List[pd.DataFrame]:
         '''
         Helper to format dataframe used to mock out `query_data_frame`
         '''
@@ -42,16 +41,13 @@ class TestInfluxMetrics(unittest.TestCase):
 
         df_p0c = df_filtered[df_filtered['_field'] == 'tick_cumulative']
         df_p0c = df_p0c.sort_values(by='_time', ignore_index=True)
-        p = imetrics.get_params()
-        points = p['points']
-        start_time = start_time - points*24*60*60
+        df_p0c.loc[:, '_field'] = 'tick_cumulative0'
 
-        df_p0c = df_p0c[df_p0c['_time']
-                        .apply(lambda x: x.timestamp()) >= start_time]
-        df_p0c = df_p0c[df_p0c['_time']
-                        .apply(lambda x: x.timestamp()) <= end_time]
+        df_p1c = df_p0c.copy()
+        df_p1c.loc[:, '_field'] = 'tick_cumulative1'
+        df_p1c.loc[:, '_value'] = df_p0c.loc[:, '_value']
 
-        return df_p0c
+        return [df_p0c, df_p1c]
 
     @mock.patch('scripts.influx_metrics_univ3.InfluxDBClient')
     def test_create_client(self, mock_idb_client):
@@ -155,11 +151,11 @@ class TestInfluxMetrics(unittest.TestCase):
     @mock.patch('influxdb_client.client.query_api.QueryApi.query_data_frame')
     def test_get_price_cumulatives(self, mock_df):
         path = 'influx-metrics/uniswap_v3/'
-        start_time = 1636526054
+        start_time = 1636526054  # any `int` values will do for the mock
         end_time = 1636528398
         query_df = self.get_price_cumulatives_df(path)
-        expected_pcs = self.get_pc_dfs(query_df, start_time, end_time)
-        # mock_df.return_value = query_df
+        expected_pcs = self.get_pc_dfs(query_df)
+        mock_df.return_value = query_df
 
         config = {
             'token': 'INFLUXDB_TOKEN',
@@ -175,19 +171,15 @@ class TestInfluxMetrics(unittest.TestCase):
         quotes = imetrics.get_quotes()
         quote = quotes[0]
 
-        _, actual = imetrics.get_price_cumulatives(query_api, config,
-                                                   quote, params,
-                                                   datetime.datetime.utcfromtimestamp(start_time),
-                                                   datetime.datetime.utcfromtimestamp(end_time))
-
-        actual_pcs = actual[0]
-        breakpoint()        
+        _, actual_pcs = imetrics.get_price_cumulatives(
+                query_api, config,
+                quote, params,
+                datetime.datetime.utcfromtimestamp(start_time),
+                datetime.datetime.utcfromtimestamp(end_time)
+                )
 
         pd_testing.assert_frame_equal(expected_pcs[0], actual_pcs[0])
         pd_testing.assert_frame_equal(expected_pcs[1], actual_pcs[1])
-
-    # def test_compute_amount_out(self):
-    #     pass
 
     # def test_get_twap(self):
     #     """
