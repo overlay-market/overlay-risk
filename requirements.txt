@@ -16,7 +16,7 @@ cytoolz==0.11.0; python_version >= "3.6" and python_version < "4" and (python_ve
 dataclassy==0.10.4; python_version >= "3.6" and python_version < "4"
 eip712==0.1.0; python_version >= "3.6" and python_version < "4"
 eth-abi==2.1.1; python_version >= "3.6" and python_version < "4"
-eth-account==0.5.5; python_version >= "3.6" and python_version < "4"
+eth-account==0.5.4; python_version >= "3.6" and python_version < "4"
 git+https://github.com/deepsp94/brownie.git; python_version >= "3.6" and python_version < "4"
 eth-event==1.2.3; python_version >= "3.6" and python_version < "4"
 eth-hash==0.3.2; python_version >= "3.6" and python_version < "4" and (python_version >= "3.6" and python_full_version < "3.5.2" and python_version < "4" or python_full_version > "3.5.2" and python_version < "4" and python_version >= "3.6")
