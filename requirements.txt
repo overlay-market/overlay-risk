@@ -5,6 +5,7 @@ atomicwrites==1.4.0; python_version >= "3.6" and python_full_version < "3.0.0" a
 attrs==21.2.0; python_version >= "3.6" and python_full_version < "3.0.0" and python_version < "4" or python_version >= "3.6" and python_version < "4" and python_full_version >= "3.5.0"
 base58==2.1.0; python_version >= "3.6" and python_version < "4" and (python_version >= "3.6" and python_full_version < "3.0.0" and python_version < "4" or python_version >= "3.6" and python_version < "4" and python_full_version >= "3.4.0")
 bitarray==1.2.2; python_version >= "3.6" and python_version < "4"
+black==21.8b0; python_version >= "3.6" and python_version < "4" and python_full_version >= "3.6.2"
 certifi==2021.5.30; python_version >= "3.6" and python_version < "4" and (python_version >= "3.6" and python_full_version < "3.0.0" and python_version < "4" or python_version >= "3.6" and python_version < "4" and python_full_version >= "3.6.0")
 chardet==4.0.0; python_version >= "3.6" and python_full_version < "3.0.0" and python_version < "4" or python_version >= "3.6" and python_version < "4" and python_full_version >= "3.5.0"
 charset-normalizer==2.0.4; python_version >= "3.6" and python_version < "4" and python_full_version >= "3.6.0"
