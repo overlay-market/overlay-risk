@@ -243,38 +243,80 @@ def get_curr_hour() -> (int):
     return datetime. datetime. utcnow().hour
 
 
-def get_dst(q, query_api, cfg):
+def get_dst(q, query_api, cfg, tok):
     bucket = cfg['source']
     org = cfg['org']
     qid = q['id']
 
-    for tok in ['price0Cumulative', 'price1Cumulative']:
-        print(f'Fetching params for {qid}, {tok} ...')
-        query = f'''
-            from(bucket:"{bucket}") |> range(start: -2d)
-                |> filter(fn: (r) => r["_measurement"] == "mem")
-                |> filter(fn: (r) => r["id"] == "{qid}")
-                |> filter(fn: (r) => r["_type"] == "{tok}")
-                |> last()
-        '''
-        df = query_api.query_data_frame(query=query, org=org)
-        breakpoint()
-        if type(df) == list:
-            df = pd.concat(df, ignore_index=True)
+    print(f'Fetching params for {qid}, {tok} ...')
+    query = f'''
+        from(bucket:"{bucket}") |> range(start: -2d)
+            |> filter(fn: (r) => r["_measurement"] == "mem")
+            |> filter(fn: (r) => r["id"] == "{qid}")
+            |> filter(fn: (r) => r["_type"] == "{tok}")
+            |> last()
+    '''
+    df = query_api.query_data_frame(query=query, org=org)
+
+    if type(df) == list:
+        df = pd.concat(df, ignore_index=True)
+
+    return pystable.create(
+        alpha=df[df._field == 'alpha']['_value'],
+        beta=df[df._field == 'beta']['_value'],
+        mu=df[df._field == 'mu']['_value'],
+        sigma=df[df._field == 'sigma']['_value'],
+        parameterization=1), df.iloc[0, :]
+
+
+def write_cumulatives(config, df, info):
+
+    df['_time'] = info._time
+    df = df.set_index("_time")
+    df['_type'] = info._type
+    df['id'] = info.id
+    df['token_name'] = info.token_name
+
+    with InfluxDBClient(
+            url=config['url'],
+            token=config['token'],
+            org=config['org']
+            ) as client:
+
+        print("Start ingestion")
+
+        write_api = client.write_api(
+            write_options=SYNCHRONOUS, point_settings=get_point_settings())
+
+        j = 1
+        while j == 1:
+            try:
+                write_api.write(bucket=config['bucket'],
+                                record=df,
+                                data_frame_measurement_name="mem",
+                                data_frame_tag_columns=[
+                                    'id', 'token_name', '_type'
+                                    ]
+                                )
+                j = 0
+                print("Ingested to influxdb")
+            except Exception as e:
+                err_cls = e.__class__
+                err_msg = str(e)
+                msg = f'''
+                Error type = {err_cls}
+                Error message = {err_msg}
+                Wait 5 secs
+                '''
+                print(msg)
+                continue
 
 
 def main():
-    # - get distribution parameters from influx_metrics_univ3
-    # - make into dst
-    # - put the whole thing in a loop to calculate everyday
     config = get_config()
     quotes = get_quotes()
     client = create_client(config)
     query_api = client.query_api()
-    write_api = client.write_api(
-        write_options=SYNCHRONOUS,
-        point_settings=get_point_settings(),
-    )
 
     while True:
         curr_hour = get_curr_hour()
@@ -282,103 +324,121 @@ def main():
         if int(curr_hour) != 0:
             sleep_time = 10
             print(f'Sleep for {sleep_time} mins')
-            # time.sleep(sleep_time*60)
-            # continue
+            time.sleep(sleep_time*60)
+            continue
 
         for q in quotes:
-            print('id', q['id'])
-            dst = get_dst(q, query_api, config)
-            print(
-                f'''
-                fit params: alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
-                mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
-                '''
-            )
+            for tok in ['price0Cumulative', 'price1Cumulative']:
+                print('id', q['id'])
+                dst, info = get_dst(q, query_api, config, tok)
+                print(
+                    f'''
+                    fit params:
+                    alpha: {dst.contents.alpha},
+                    beta: {dst.contents.beta},
+                    mu: {dst.contents.mu_1},
+                    sigma: {dst.contents.sigma}
+                    '''
+                )
 
-            dst = rescale(dst, 1/T)
-            print(
-                f'''
-                rescaled params (1/T = {1/T}):
-                alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
-                mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
-                '''
-            )
+                dst = rescale(dst, 1/T)
+                print(
+                    f'''
+                    rescaled params (1/T = {1/T}):
+                    alpha: {dst.contents.alpha},
+                    beta: {dst.contents.beta},
+                    mu: {dst.contents.mu_1},
+                    sigma: {dst.contents.sigma}
+                    '''
+                )
 
-            # calc k (funding constant)
-            g_inv = np.log(1+CP)
-            g_inv_one = np.log(2)
-            ks = []
-            for n in NS:
-                fundings = k(dst.contents.alpha, dst.contents.beta,
-                            dst.contents.mu_1, dst.contents.sigma,
-                            n, TC, g_inv, ALPHAS)
-                ks.append(fundings)
+                # calc k (funding constant)
+                g_inv = np.log(1+CP)
+                g_inv_one = np.log(2)
+                ks = []
+                for n in NS:
+                    fundings = k(dst.contents.alpha, dst.contents.beta,
+                                 dst.contents.mu_1, dst.contents.sigma,
+                                 n, TC, g_inv, ALPHAS)
+                    ks.append(fundings)
 
-            df_ks = pd.DataFrame(
-                data=ks,
-                columns=[f"alpha={alpha}" for alpha in ALPHAS],
-                index=[f"n={n}" for n in NS]
-            )
-            print('ks:', df_ks)
-            # df_ks.to_csv(f"csv/metrics/{FILENAME}-ks.csv")
+                df_ks = pd.DataFrame(
+                    data=ks,
+                    columns=[f"alpha={alpha}" for alpha in ALPHAS],
+                    index=[f"n={n}" for n in NS]
+                )
+                print('ks:', df_ks)
 
-            # For different k values at alpha = 0.05 level (diff n calibs),
-            # plot VaR and ES at times into the future
-            nvalue_at_risk_calls = []
-            nexpected_value_calls = []
-            for t in TS:
-                for k_n in df_ks[f"alpha={ALPHA}"]:
-                    nvalue_at_risk_calls.append(
-                        (
-                            dst.contents.alpha, dst.contents.beta,
-                            dst.contents.mu_1, dst.contents.sigma,
-                            k_n, TC, g_inv, ALPHA, t
+                # For different k values at alpha = 0.05 level (diff n calibs),
+                # plot VaR and ES at times into the future
+                nvalue_at_risk_calls = []
+                nexpected_value_calls = []
+                for t in TS:
+                    for k_n in df_ks[f"alpha={ALPHA}"]:
+                        nvalue_at_risk_calls.append(
+                            (
+                                dst.contents.alpha, dst.contents.beta,
+                                dst.contents.mu_1, dst.contents.sigma,
+                                k_n, TC, g_inv, ALPHA, t
+                            )
                         )
-                    )
-                    nexpected_value_calls.append(
-                        (
-                            dst.contents.alpha, dst.contents.beta,
-                            dst.contents.mu_1, dst.contents.sigma,
-                            k_n, TC, g_inv, CP,
-                            g_inv_one, t
+                        nexpected_value_calls.append(
+                            (
+                                dst.contents.alpha, dst.contents.beta,
+                                dst.contents.mu_1, dst.contents.sigma,
+                                k_n, TC, g_inv, CP,
+                                g_inv_one, t
+                            )
                         )
-                    )
 
-            nexpected_shortfall_calls = nvalue_at_risk_calls
+                nexpected_shortfall_calls = nvalue_at_risk_calls
+                # nvalue_at_risk_calls = nvalue_at_risk_calls[0:10]
+                # nexpected_value_calls = nexpected_value_calls[0:10]
+                # nexpected_shortfall_calls = nexpected_shortfall_calls[0:10]
 
-            nvalue_at_risk_values = []
-            nexpected_shortfall_values = []
-            nexpected_value_values = []
+                nvalue_at_risk_values = []
+                nexpected_shortfall_values = []
+                nexpected_value_values = []
 
-            start_time = time.time()
+                start_time = time.time()
+                with ProcessPoolExecutor() as executor:
+                    for item in executor.map(nvalue_at_risk,
+                                             nvalue_at_risk_calls):
+                        nvalue_at_risk_values.append(item)
 
-            with ProcessPoolExecutor() as executor:
-                for item in executor.map(nvalue_at_risk, nvalue_at_risk_calls):
-                    nvalue_at_risk_values.append(item)
+                print('nvalue_at_risk_values: ', nvalue_at_risk_values)
 
-            print('nvalue_at_risk_values: ', nvalue_at_risk_values)
+                with ProcessPoolExecutor() as executor:
+                    for item in executor.map(
+                            nexpected_shortfall,
+                            nexpected_shortfall_calls
+                            ):
+                        nexpected_shortfall_values.append(item)
 
-            with ProcessPoolExecutor() as executor:
-                for item in executor.map(
-                        nexpected_shortfall,
-                        nexpected_shortfall_calls
-                        ):
-                    nexpected_shortfall_values.append(item)
+                print('nexpected_shortfall_values: ',
+                      nexpected_shortfall_values)
 
-            print('nexpected_shortfall_values: ', nexpected_shortfall_values)
+                with ProcessPoolExecutor() as executor:
+                    for item in executor.map(
+                            nexpected_value,
+                            nexpected_value_calls
+                            ):
+                        nexpected_value_values.append(item)
 
-            with ProcessPoolExecutor() as executor:
-                for item in executor.map(
-                        nexpected_value,
-                        nexpected_value_calls
-                        ):
-                    nexpected_value_values.append(item)
+                print('nexpected_value_values: ', nexpected_value_values)
 
-            print('nexpected_value_values: ', nexpected_value_values)
+                end_time = time.time()
 
-            end_time = time.time()
+                print('time taken: ', end_time - start_time)
 
-            print('time taken: ', end_time - start_time)
+                nvalue_at_risk_df = pd.DataFrame(nvalue_at_risk_values)
+                nexpected_shortfall_df = \
+                    pd.DataFrame(nexpected_shortfall_values)
+                nexpected_value_df = pd.DataFrame(nexpected_value_values)
+
+                write_cumulatives(config, nvalue_at_risk_df, info)
+                write_cumulatives(config, nexpected_shortfall_df, info)
+                write_cumulatives(config, nexpected_value_df, info)
 
 
 if __name__ == '__main__':
