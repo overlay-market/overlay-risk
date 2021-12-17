@@ -183,10 +183,10 @@ class TestInfluxMetrics(unittest.TestCase):
 
     # def test_get_twap(self):
     #     """
-    #     get_twap(priceCumulatives, quote, params) should calculate rolling TWAP
-    #     values for each (`_time`, `_value`) row in the `priceCumulatives`
-    #     DataFrame. Rolling TWAP values should be calculated with a window size
-    #     of `params['window']`.
+    #     get_twap(priceCumulatives, quote, params) should calculate rolling
+    #     TWAP values for each (`_time`, `_value`) row in the
+    #     `priceCumulatives` DataFrame. Rolling TWAP values should be
+    #      calculated with a window size of `params['window']`.
 
     #     Should return a pandas DataFrame with columns [`timestamp`, `window`,
     #     `twap`] where for each row
@@ -234,9 +234,9 @@ class TestInfluxMetrics(unittest.TestCase):
     #     [e**(mu * n * t + sqrt(sig_sqrd * n * t) * Psi^{-1}(1 - alpha))]
 
     #     in Value at Risk (VaR) expressions for each alpha value in
-    #     numpy array `alphas`. `t` is the period size of how frequently we fetch
-    #     updates and `n` is number of update periods into the future we wish
-    #     to examine VaR values for.
+    #     numpy array `alphas`. `t` is the period size of how frequently we
+    #     fetch updates and `n` is number of update periods into the future we
+    #     wish to examine VaR values for.
 
     #     Should return a numpy array of calculated values for each `alpha`.
 
@@ -247,9 +247,9 @@ class TestInfluxMetrics(unittest.TestCase):
     # def test_get_stat(self):
     #     """
     #     get_stat(timestamp, sample, quote, params) should compute the maximum
-    #     likelihood estimates (MLEs) for distributional params of `sample` data
-    #     as well as bracketed VaR expressions for various confidence levels
-    #     specified in `params['alpha']` list.
+    #     likelihood estimates (MLEs) for distributional params of `sample`
+    #     data as well as bracketed VaR expressions for various confidence
+    #     levels specified in `params['alpha']` list.
 
     #     MLE values having units of [time] should be in units of
     #     `params["period"]`.
@@ -272,8 +272,8 @@ class TestInfluxMetrics(unittest.TestCase):
     #     get_params()['points'] number of days from config `source` of `org`,
     #     for quotes specified in `scripts/constants/quotes.json`.
 
-    #     For each quote in JSON file, should compute rolling TWAP samples. Using
-    #     rolling TWAP samples, should determine statistical estimates for
+    #     For each quote in JSON file, should compute rolling TWAP samples.
+    #     Using rolling TWAP samples should determine statistical estimates for
     #     distributional params (MLEs) of TWAP. With statistical estimates,
     #     should calculate VaR expressions and suggested funding constant `k`
     #     values.
