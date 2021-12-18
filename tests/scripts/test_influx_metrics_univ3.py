@@ -295,45 +295,6 @@ class TestInfluxMetrics(unittest.TestCase):
 
         actual_df = imetrics.get_twap(input_df, quote, params)
         pd_testing.assert_frame_equal(actual_df, expected_df)
-        
-        
-        
-        
-        
-        
-        
-        
-        # path = 'influx-metrics/sushi/weth-wbtc'
-        # query_df = self.get_price_cumulatives_df(path)
-        # gpc_pcs = self.get_pc_dfs(query_df)
-
-        # params = imetrics.get_params()
-        # quotes = imetrics.get_quotes()
-        # quote = quotes[0]
-
-        # # Price Cumulative 0
-        # pcs_idx = 0
-        # expected = self.get_twap_df(path, pcs_idx)
-        # expected.timestamp = expected.timestamp.astype(object)
-        # expected.window = expected.window.astype(object)
-        # expected.twap = expected.twap.astype(float)
-        # expected.columns = ['timestamp', 'window', 'twap']
-
-        # actual = imetrics.get_twap(gpc_pcs[pcs_idx], quote, params)
-        # actual.columns = ['timestamp', 'window', 'twap']
-        # actual.twap = actual.twap.astype(float)
-        # pd_testing.assert_frame_equal(expected, actual)
-
-        # # Price Cumulative 1
-        # pcs_idx = 1
-        # expected = self.get_twap_df(path, pcs_idx)
-        # expected.twap = expected.twap.astype(float)
-        # expected.columns = ['timestamp', 'window', 'twap']
-
-        # actual = imetrics.get_twap(gpc_pcs[pcs_idx], quote, params)
-        # actual.columns = ['timestamp', 'window', 'twap']
-        # actual.twap = actual.twap.astype(float)
-        # pd_testing.assert_frame_equal(expected, actual)
 
     # def test_calc_vars(self):
     #     """
