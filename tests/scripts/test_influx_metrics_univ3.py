@@ -18,7 +18,7 @@ class TestInfluxMetrics(unittest.TestCase):
     def get_price_cumulatives_df(self, path) -> pd.DataFrame:
         '''
         Helper to return dataframe used to mock out `query_data_frame` in the
-        `get_price_cumulatives` function in `scripts/influx_metrics.py`
+        `get_price_cumulatives` function in `scripts/influx_metrics_univ3.py`
         '''
         base = os.path.dirname(os.path.abspath(__file__))
         base = os.path.abspath(os.path.join(base, os.pardir))
@@ -29,6 +29,40 @@ class TestInfluxMetrics(unittest.TestCase):
         df = pd.read_csv(base, sep=',')
         df._start = pd.to_datetime(df._start)
         df._stop = pd.to_datetime(df._stop)
+        df._time = pd.to_datetime(df._time)
+
+        return df
+
+    def get_find_start_df(self, path) -> pd.DataFrame:
+        '''
+        Helper to return dataframe used to mock out `query_data_frame` in the
+        `find_start` function in `scripts/influx_metrics_univ3.py`
+        '''
+        base = os.path.dirname(os.path.abspath(__file__))
+        base = os.path.abspath(os.path.join(base, os.pardir))
+        base = os.path.join(base, 'helpers')
+        base = os.path.join(base, path)
+        base = os.path.join(base, 'find_start.csv')
+
+        df = pd.read_csv(base, sep=',', index_col=0)
+        df._start = pd.to_datetime(df._start)
+        df._stop = pd.to_datetime(df._stop)
+        df._time = pd.to_datetime(df._time)
+
+        return df
+
+    def get_list_of_timestamps_df(self, path) -> pd.DataFrame:
+        '''
+        Helper to return dataframe used to mock out `query_data_frame` in the
+        `list_of_timestamps` function in `scripts/influx_metrics_univ3.py`
+        '''
+        base = os.path.dirname(os.path.abspath(__file__))
+        base = os.path.abspath(os.path.join(base, os.pardir))
+        base = os.path.join(base, 'helpers')
+        base = os.path.join(base, path)
+        base = os.path.join(base, 'list_of_timestamps.csv')
+
+        df = pd.read_csv(base, sep=',', index_col=0)
         df._time = pd.to_datetime(df._time)
 
         return df
@@ -181,51 +215,125 @@ class TestInfluxMetrics(unittest.TestCase):
         pd_testing.assert_frame_equal(expected_pcs[0], actual_pcs[0])
         pd_testing.assert_frame_equal(expected_pcs[1], actual_pcs[1])
 
-    # def test_get_twap(self):
-    #     """
-    #     get_twap(priceCumulatives, quote, params) should calculate rolling
-    #     TWAP values for each (`_time`, `_value`) row in the
-    #     `priceCumulatives` DataFrame. Rolling TWAP values should be
-    #      calculated with a window size of `params['window']`.
+    @mock.patch('influxdb_client.client.query_api.QueryApi.query_data_frame')
+    def test_find_start(self, mock_time):
+        path = 'influx-metrics/uniswap_v3/'
+        query_df = self.get_find_start_df(path)
+        mock_time.return_value = query_df
 
-    #     Should return a pandas DataFrame with columns [`timestamp`, `window`,
-    #     `twap`] where for each row
-    #       - `timestamp` is the last timestamp in the rolling window (close
-    #         time)
-    #       - `window` is the time elapsed within the window
-    #       - `twap` is the TWAP value calculated for the window
-    #     """
-    #     path = 'influx-metrics/sushi/weth-wbtc'
-    #     query_df = self.get_price_cumulatives_df(path)
-    #     gpc_pcs = self.get_pc_dfs(query_df)
+        config = {
+            'token': 'INFLUXDB_TOKEN',
+            'org': 'INFLUXDB_ORG',
+            'bucket': 'ovl_metrics_univ3',
+            'source': 'ovl_univ3_1h',
+            'url': 'INFLUXDB_URL',
+        }
 
-    #     params = imetrics.get_params()
-    #     quotes = imetrics.get_quotes()
-    #     quote = quotes[0]
+        client = imetrics.create_client(config)
+        query_api = client.query_api()
+        params = imetrics.get_params()
+        quotes = imetrics.get_quotes()
+        quote = quotes[0]
 
-    #     # Price Cumulative 0
-    #     pcs_idx = 0
-    #     expected = self.get_twap_df(path, pcs_idx)
-    #     expected.timestamp = expected.timestamp.astype(object)
-    #     expected.window = expected.window.astype(object)
-    #     expected.twap = expected.twap.astype(float)
-    #     expected.columns = ['timestamp', 'window', 'twap']
+        actual_ts = imetrics.find_start(query_api, quote, config, params)
+        expected_ts = 1639812670
+        self.assertEqual(actual_ts, expected_ts)
 
-    #     actual = imetrics.get_twap(gpc_pcs[pcs_idx], quote, params)
-    #     actual.columns = ['timestamp', 'window', 'twap']
-    #     actual.twap = actual.twap.astype(float)
-    #     pd_testing.assert_frame_equal(expected, actual)
+    @mock.patch('influxdb_client.client.query_api.QueryApi.query_data_frame')
+    def test_list_of_timestamps(self, mock_list):
+        mock_list.return_value = pd.DataFrame()
+        config = {
+            'token': 'INFLUXDB_TOKEN',
+            'org': 'INFLUXDB_ORG',
+            'bucket': 'ovl_metrics_univ3',
+            'source': 'ovl_univ3_1h',
+            'url': 'INFLUXDB_URL',
+        }
 
-    #     # Price Cumulative 1
-    #     pcs_idx = 1
-    #     expected = self.get_twap_df(path, pcs_idx)
-    #     expected.twap = expected.twap.astype(float)
-    #     expected.columns = ['timestamp', 'window', 'twap']
+        client = imetrics.create_client(config)
+        query_api = client.query_api()
+        quotes = imetrics.get_quotes()
+        quote = quotes[0]
 
-    #     actual = imetrics.get_twap(gpc_pcs[pcs_idx], quote, params)
-    #     actual.columns = ['timestamp', 'window', 'twap']
-    #     actual.twap = actual.twap.astype(float)
-    #     pd_testing.assert_frame_equal(expected, actual)
+        actual_list = imetrics.list_of_timestamps(query_api, quote,
+                                                  config, start_ts=1)
+        expected_list = [0]
+        # Test when list doesn't have timestamps
+        self.assertEqual(actual_list, expected_list)
+
+        path = 'influx-metrics/uniswap_v3/'
+        query_df = self.get_list_of_timestamps_df(path)
+        mock_list.return_value = query_df
+        expected_list = list(query_df['_time'])
+        actual_list = imetrics.list_of_timestamps(query_api, quote,
+                                                  config, start_ts=1639814428)
+        # Test when list has timestamps
+        self.assertEqual(actual_list, expected_list)
+
+    def test_get_twap(self):
+        """
+        get_twap(priceCumulatives, quote, params) should calculate rolling
+        TWAP values for each (`_time`, `_value`) row in the
+        `priceCumulatives` DataFrame. Rolling TWAP values should be
+         calculated with a window size of `params['window']`.
+
+        Should return a pandas DataFrame with columns [`timestamp`, `window`,
+        `twap`] where for each row
+          - `timestamp` is the last timestamp in the rolling window (close
+            time)
+          - `window` is the time elapsed within the window
+          - `twap` is the TWAP value calculated for the window
+        """
+        path = 'tests/helpers/influx-metrics/uniswap_v3/'
+        input_df = pd.read_csv(path + 'get_twap_input_df.csv', index_col=0)
+        input_df._time = pd.to_datetime(input_df._time)
+        expected_df = pd.read_csv(path + 'get_twap_output_df.csv', index_col=0)
+
+        params = imetrics.get_params()
+        quotes = imetrics.get_quotes()
+        quote = quotes[0]
+
+        actual_df = imetrics.get_twap(input_df, quote, params)
+        pd_testing.assert_frame_equal(actual_df, expected_df)
+        
+        
+        
+        
+        
+        
+        
+        
+        # path = 'influx-metrics/sushi/weth-wbtc'
+        # query_df = self.get_price_cumulatives_df(path)
+        # gpc_pcs = self.get_pc_dfs(query_df)
+
+        # params = imetrics.get_params()
+        # quotes = imetrics.get_quotes()
+        # quote = quotes[0]
+
+        # # Price Cumulative 0
+        # pcs_idx = 0
+        # expected = self.get_twap_df(path, pcs_idx)
+        # expected.timestamp = expected.timestamp.astype(object)
+        # expected.window = expected.window.astype(object)
+        # expected.twap = expected.twap.astype(float)
+        # expected.columns = ['timestamp', 'window', 'twap']
+
+        # actual = imetrics.get_twap(gpc_pcs[pcs_idx], quote, params)
+        # actual.columns = ['timestamp', 'window', 'twap']
+        # actual.twap = actual.twap.astype(float)
+        # pd_testing.assert_frame_equal(expected, actual)
+
+        # # Price Cumulative 1
+        # pcs_idx = 1
+        # expected = self.get_twap_df(path, pcs_idx)
+        # expected.twap = expected.twap.astype(float)
+        # expected.columns = ['timestamp', 'window', 'twap']
+
+        # actual = imetrics.get_twap(gpc_pcs[pcs_idx], quote, params)
+        # actual.columns = ['timestamp', 'window', 'twap']
+        # actual.twap = actual.twap.astype(float)
+        # pd_testing.assert_frame_equal(expected, actual)
 
     # def test_calc_vars(self):
     #     """
