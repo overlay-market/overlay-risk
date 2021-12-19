@@ -5,9 +5,9 @@ import numpy as np
 from scipy import integrate
 
 
-FILENAME = "ethusd_01012020_08232021"
+FILENAME = "data-1625069716_weth-usdc-twap"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-T = 4  # 1m candle size on datafile
+T = 40  # 10m candle size on datafile
 TC = 40  # 10 m compounding period
 CP = 4  # 5x payoff cap
 
@@ -293,7 +293,7 @@ def main():
     df_nevs_long.to_csv(
         f"csv/metrics/{FILENAME}-nevs-long-alpha-{ALPHA}.csv")
 
-    print(f'nevs short (alpha={ALPHA}):', df_ness_short)
+    print(f'nevs short (alpha={ALPHA}):', df_nevs_short)
     df_nevs_short.to_csv(
         f"csv/metrics/{FILENAME}-nevs-short-alpha-{ALPHA}.csv")
 
