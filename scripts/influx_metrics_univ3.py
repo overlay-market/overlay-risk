@@ -92,7 +92,7 @@ def get_params() -> tp.Dict:
         "tolerance": 10,
         "alpha": [0.05, 0.01, 0.001, 0.0001],
         "n": [144, 1008, 2016, 4320],
-        "data_start": 30
+        "data_start": 90
     }
 
 
@@ -437,11 +437,11 @@ def calc_vars(alpha: float, beta: float, sigma: float, mu: float, t: int,
     '''
     q = 1 - np.array(alphas)
     scale_dist = pystable.create(alpha, beta, 1, 0, 1)
-    pystable.q(scale_dist, q, len(q))
+    qtile = pystable.q(scale_dist, q, len(q))
 
     sig = sigma * (t/alpha) ** (-1/alpha)
     mu = mu / t
-    pow = mu * n * t + sig * (n * t / alpha) ** (1 / alpha) * q
+    pow = mu * n * t + sig * (n * t / alpha) ** (1 / alpha) * np.array(qtile)
     return np.exp(pow) - 1
 
 
@@ -542,7 +542,6 @@ def main():
                     twaps = get_twaps(pcs, q, params)
                     print('timestamp: ', datetime.fromtimestamp(timestamp))
 
-                    # Calc stats for each twap (NOT inverse of each other)
                     samples = get_samples_from_twaps(twaps)
                     stats = get_stats(timestamp, samples, params)
                     for i, stat in enumerate(stats):
