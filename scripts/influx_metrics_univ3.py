@@ -92,7 +92,7 @@ def get_params() -> tp.Dict:
         "tolerance": 10,
         "alpha": [0.05, 0.01, 0.001, 0.0001],
         "n": [144, 1008, 2016, 4320],
-        "data_start": 30
+        "data_start": 90
     }
 
 
@@ -437,11 +437,11 @@ def calc_vars(alpha: float, beta: float, sigma: float, mu: float, t: int,
     '''
     q = 1 - np.array(alphas)
     scale_dist = pystable.create(alpha, beta, 1, 0, 1)
-    pystable.q(scale_dist, q, len(q))
+    qtile = pystable.q(scale_dist, q, len(q))
 
     sig = sigma * (t/alpha) ** (-1/alpha)
     mu = mu / t
-    pow = mu * n * t + sig * (n * t / alpha) ** (1 / alpha) * q
+    pow = mu * n * t + sig * (n * t / alpha) ** (1 / alpha) * np.array(qtile)
     return np.exp(pow) - 1
 
 
@@ -515,34 +515,40 @@ def main():
                                                params,
                                                first_ts,
                                                last_ts)
-            lookb_wndw = params['points']*24*60*60
-            for ts in ts_list:
-                try:
+
+            try:
+                # Calculate difference between max and min date.
+                data_days = pcs_all[0]['_time'].max()\
+                            - pcs_all[0]['_time'].min()
+
+                if data_days < timedelta(days=params['points']-1):
+                    print(
+                        f"The pair has less than {params['points']-1}d of"
+                        f"data, therefore it is not being ingested"
+                        f"to {config['bucket']}"
+                    )
+                    continue
+
+                twaps_all = get_twaps(pcs_all, q, params)
+
+            except Exception as e:
+                print("Failed to generate TWAPs")
+                logging.exception(e)
+
+            try:
+                for ts in ts_list:
                     timestamp = int(ts.timestamp())
-                    pcs = [
-                           pcs_all[0][(pcs_all[0]['_time'] >= ts
-                                       - timedelta(seconds=(lookb_wndw)))
-                                      & (pcs_all[0]['_time'] <= ts)].copy(),
-                           pcs_all[1][(pcs_all[1]['_time'] >= ts
-                                       - timedelta(seconds=(lookb_wndw)))
-                                      & (pcs_all[1]['_time'] <= ts)].copy()
-                           ]
-
-                    # Calculate difference between max and min date.
-                    data_days = pcs[0]['_time'].max() - pcs[0]['_time'].min()
-
-                    if data_days < timedelta(days=params['points']-1):
-                        print(
-                            f"The pair has less than {params['points']-1}d of"
-                            f"data, therefore it is not being ingested"
-                            f"to {config['bucket']}"
-                        )
-                        continue
-
-                    twaps = get_twaps(pcs, q, params)
                     print('timestamp: ', datetime.fromtimestamp(timestamp))
-
-                    # Calc stats for each twap (NOT inverse of each other)
+                    end_twap = ts.timestamp()
+                    lookb_wndw = params['points']*24*60*60
+                    start_twap = (ts-timedelta(seconds=lookb_wndw)).timestamp()
+                    twaps =\
+                        [
+                         twaps_all[0][(twaps_all[0].timestamp >= start_twap)
+                                      & (twaps_all[0].timestamp <= end_twap)],
+                         twaps_all[1][(twaps_all[1].timestamp >= start_twap)
+                                      & (twaps_all[1].timestamp <= end_twap)]
+                        ]
                     samples = get_samples_from_twaps(twaps)
                     stats = get_stats(timestamp, samples, params)
                     for i, stat in enumerate(stats):
@@ -565,9 +571,9 @@ def main():
                         print(f"Writing {q['id']} for price{i}Cumulative...")
                         write_api.write(config['bucket'], config['org'], point)
 
-                except Exception as e:
-                    print("Failed to write quote stats to influx")
-                    logging.exception(e)
+            except Exception as e:
+                print("Failed to write quote stats to influx")
+                logging.exception(e)
 
         print("Metrics are up to date. Wait 5 mins.")
         time.sleep(300)
