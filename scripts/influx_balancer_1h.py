@@ -299,11 +299,3 @@ def main():
         print(f'Wait {sl_time} secs')
         time.sleep(sl_time)
         t_end = math.floor(time.time())
-
-
-# def main():
-#     abi = get_bal_abi()
-#     pool = POOL(get_quotes(), abi)
-#     twap_latest = pool.getTimeWeightedAverage([(0, 3600, 0)])
-#     pool.getTimeWeightedAverage([(0,3600, 0)], block_identifier=13996032)
-#     breakpoint()
