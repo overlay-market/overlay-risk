@@ -7,6 +7,7 @@ import typing as tp
 import logging
 import math
 import time
+import gc
 
 from datetime import datetime, timedelta
 
@@ -535,8 +536,10 @@ def main():
                 print("Failed to generate TWAPs")
                 logging.exception(e)
 
+            i = 0
             try:
                 for ts in ts_list:
+                    i = i + 1
                     timestamp = int(ts.timestamp())
                     print('timestamp: ', datetime.fromtimestamp(timestamp))
                     end_twap = ts.timestamp()
@@ -570,6 +573,17 @@ def main():
 
                         print(f"Writing {q['id']} for price{i}Cumulative...")
                         write_api.write(config['bucket'], config['org'], point)
+
+                    if i > 500:
+                        # release memory periodically
+                        # to avoid R14 error (Heroku)
+                        del twaps
+                        del twaps_all
+                        del samples
+                        del stats
+                        del stat
+                        gc.collect()
+                        i = 0
 
             except Exception as e:
                 print("Failed to write quote stats to influx")
