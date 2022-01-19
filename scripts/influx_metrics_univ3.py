@@ -539,7 +539,6 @@ def main():
             loop_counter = 0
             try:
                 for ts in ts_list:
-                    breakpoint()
                     loop_counter += 1
                     timestamp = int(ts.timestamp())
                     print('timestamp: ', datetime.fromtimestamp(timestamp))
