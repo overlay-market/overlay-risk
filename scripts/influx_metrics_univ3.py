@@ -536,10 +536,11 @@ def main():
                 print("Failed to generate TWAPs")
                 logging.exception(e)
 
-            i = 0
+            loop_counter = 0
             try:
                 for ts in ts_list:
-                    i = i + 1
+                    breakpoint()
+                    loop_counter += 1
                     timestamp = int(ts.timestamp())
                     print('timestamp: ', datetime.fromtimestamp(timestamp))
                     end_twap = ts.timestamp()
@@ -574,20 +575,23 @@ def main():
                         print(f"Writing {q['id']} for price{i}Cumulative...")
                         write_api.write(config['bucket'], config['org'], point)
 
-                    if i > 500:
+                    if loop_counter > 500:
                         # release memory periodically
                         # to avoid R14 error (Heroku)
                         del twaps
-                        del twaps_all
                         del samples
                         del stats
                         del stat
                         gc.collect()
-                        i = 0
+                        print("Memory freed up")
+                        loop_counter = 0
 
             except Exception as e:
                 print("Failed to write quote stats to influx")
                 logging.exception(e)
+
+            del twaps_all
+            gc.collect()
 
         print("Metrics are up to date. Wait 5 mins.")
         time.sleep(300)
