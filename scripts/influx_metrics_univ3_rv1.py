@@ -443,46 +443,56 @@ def calc_vars(alpha: float, beta: float, sigma: float, mu: float, t: int,
     sig = sigma * (t/alpha) ** (-1/alpha)
     mu = mu / t
     pow = mu * n * t + sig * (n * t / alpha) ** (1 / alpha) * np.array(qtile)
+
+    del alpha, beta, sigma, mu, t, n, alphas
+    del q, scale_dist, qtile, mu, sig
+    gc.collect()
+
     return np.exp(pow) - 1
 
 
 def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
              ) -> pd.DataFrame:
-    # t = p["period"] * 60
+    t = p["period"] * 60
 
-    # # mles
-    # rs = [np.log(sample[i]/sample[i-1]) for i in range(1, len(sample), 1)]
+    # mles
+    rs = [np.log(sample[i]/sample[i-1]) for i in range(1, len(sample), 1)]
 
-    # # Gaussian Fit
-    # fit = {'alpha': 2, 'beta': 0, 'sigma': 1, 'mu': 0, 'parameterization': 1}
+    # Gaussian Fit
+    fit = {'alpha': 2, 'beta': 0, 'sigma': 1, 'mu': 0, 'parameterization': 1}
 
-    # # # Check fit validity
-    # fit_dist = pystable.create(fit['alpha'], fit['beta'], fit['sigma'],
-    #                            fit['mu'], fit['parameterization'])
+    # Check fit validity
+    fit_dist = pystable.create(fit['alpha'], fit['beta'], fit['sigma'],
+                               fit['mu'], fit['parameterization'])
 
-    # pystable.fit(fit_dist, rs, len(rs))
+    pystable.fit(fit_dist, rs, len(rs))
 
     # VaRs for 5%, 1%, 0.1%, 0.01% alphas, n periods into the future
     alphas = np.array(p["alpha"])
     ns = np.array(p["n"])
-    # vars = [calc_vars(fit_dist.contents.alpha, fit_dist.contents.beta,
-    #                   fit_dist.contents.sigma, fit_dist.contents.mu_1,
-    #                   t, n, alphas) for n in ns]
+    vars = [calc_vars(fit_dist.contents.alpha, fit_dist.contents.beta,
+                      fit_dist.contents.sigma, fit_dist.contents.mu_1,
+                      t, n, alphas) for n in ns]
     var_labels = [
         f'VaR alpha={alpha} n={n}'
         for n in ns
         for alpha in alphas
     ]
 
-    # data = np.concatenate(([timestamp, fit_dist.contents.alpha,
-    #                         fit_dist.contents.beta, fit_dist.contents.sigma,
-    #                         fit_dist.contents.mu_1], *vars), axis=None)
+    data = np.concatenate(([timestamp, fit_dist.contents.alpha,
+                            fit_dist.contents.beta, fit_dist.contents.sigma,
+                            fit_dist.contents.mu_1], *vars), axis=None)
 
-    asdf = np.random.randint(10, 90, (4, 4))
-    data = np.concatenate((timestamp, 1, 2, 3, 4, asdf), axis=None)
+    # asdf = np.random.randint(10, 90, (4, 4))
+    # data = np.concatenate((timestamp, 1, 2, 3, 4, asdf), axis=None)
 
     df = pd.DataFrame(data=data).T
     df.columns = ['timestamp', 'alpha', 'beta', 'sigma', 'mu', *var_labels]
+
+    del timestamp, sample, p
+    del t, rs, fit, fit_dist, alphas, ns, vars, var_labels, data
+    gc.collect()
+
     return df
 
 
