@@ -445,7 +445,7 @@ def calc_vars(alpha: float, beta: float, sigma: float, mu: float, t: int,
     pow = mu * n * t + sig * (n * t / alpha) ** (1 / alpha) * np.array(qtile)
 
     del alpha, beta, sigma, mu, t, n, alphas
-    del q, scale_dist, qtile, mu, sig
+    del q, scale_dist, qtile, sig
     gc.collect()
 
     return np.exp(pow) - 1
