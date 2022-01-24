@@ -437,8 +437,9 @@ def calc_vars(alpha: float, beta: float, sigma: float, mu: float, t: int,
 
     '''
     q = 1 - np.array(alphas)
-    scale_dist = pystable.create(alpha, beta, 1, 0, 1)
-    qtile = pystable.q(scale_dist, q, len(q))
+    # scale_dist = pystable.create(alpha, beta, 1, 0, 1)
+    # qtile = pystable.q(scale_dist, q, len(q))
+    qtile = q
 
     sig = sigma * (t/alpha) ** (-1/alpha)
     mu = mu / t
