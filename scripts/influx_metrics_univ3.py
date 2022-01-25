@@ -416,7 +416,7 @@ def get_samples_from_twaps(
 # Calcs VaR * d^n normalized for initial imbalance
 # See: https://oips.overlay.market/notes/note-4
 def calc_vars(alpha: float, beta: float, sigma: float, mu: float, t: int,
-              n: int, alphas: np.ndarray) -> np.ndarray:
+              n: int, qtile: np.ndarray) -> np.ndarray:
     '''
     Calculates bracketed term:
         [e**(mu * n * t + sqrt(sig_sqrd * n * t) * Psi^{-1}(1 - alpha))]
@@ -436,10 +436,6 @@ def calc_vars(alpha: float, beta: float, sigma: float, mu: float, t: int,
       [np.ndarray]:  Array of calculated values for each `alpha`
 
     '''
-    q = 1 - np.array(alphas)
-    # scale_dist = pystable.create(alpha, beta, 1, 0, 1)
-    # qtile = pystable.q(scale_dist, q, len(q))
-    qtile = q
 
     sig = sigma * (t/alpha) ** (-1/alpha)
     mu = mu / t
@@ -466,9 +462,13 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
     # VaRs for 5%, 1%, 0.1%, 0.01% alphas, n periods into the future
     alphas = np.array(p["alpha"])
     ns = np.array(p["n"])
+    scale_dist = pystable.create(fit_dist.contents.alpha,
+                                 fit_dist.contents.beta, 1, 0, 1)
+    q = 1 - np.array(alphas)
+    qtile = pystable.q(scale_dist, q, len(q))
     vars = [calc_vars(fit_dist.contents.alpha, fit_dist.contents.beta,
                       fit_dist.contents.sigma, fit_dist.contents.mu_1,
-                      t, n, alphas) for n in ns]
+                      t, n, qtile) for n in ns]
     var_labels = [
         f'VaR alpha={alpha} n={n}'
         for n in ns
