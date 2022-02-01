@@ -576,7 +576,6 @@ def main():
                 logging.exception(e)
 
             get_stats_vals = []
-            breakpoint()
             with ProcessPoolExecutor() as executor:
                 for item in executor.map(
                         get_stats,
