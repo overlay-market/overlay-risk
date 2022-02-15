@@ -14,6 +14,8 @@ click = "^8.0.1"
 schedule = "^1.1.0"
 pystable = "^0.2.3"
 eth-brownie = { git = "https://github.com/deepsp94/brownie.git"}
+memory-profiler = "^0.60.0"
+matplotlib = "^3.5.1"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.2"
