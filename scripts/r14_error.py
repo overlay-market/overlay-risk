@@ -167,7 +167,7 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
 
 
 def main():
-    sample = np.genfromtxt('../sample_r14.csv', delimiter=',')
+    sample = np.genfromtxt('sample_r14.csv', delimiter=',')
     timestamp = 1644918170
     p = get_params()
     i = 0
