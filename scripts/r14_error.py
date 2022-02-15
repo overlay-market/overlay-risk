@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-# import os
+import os
 # import json
 import pystable
 import typing as tp
@@ -167,7 +167,10 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
 
 
 def main():
-    sample = np.genfromtxt('sample_r14.csv', delimiter=',')
+    base = os.path.dirname(os.path.abspath(__file__))
+    file_name = 'sample_r14.csv'
+    data_path = os.path.join(base, file_name)
+    sample = np.genfromtxt(data_path, delimiter=',')
     timestamp = 1644918170
     p = get_params()
     i = 0
