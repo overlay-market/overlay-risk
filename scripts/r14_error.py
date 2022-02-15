@@ -171,7 +171,8 @@ def main():
     timestamp = 1644918170
     p = get_params()
     i = 0
-    while i < 3000:
+    # while i < 3000:
+    while True:
         results = get_stat(timestamp, sample, p)
         i += 1
         print(i)
