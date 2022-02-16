@@ -1,70 +1,8 @@
 import pandas as pd
 import numpy as np
 import os
-# import json
 import pystable
 import typing as tp
-# import logging
-# import math
-# import time
-# import gc
-
-# from datetime import datetime, timedelta
-
-# from influxdb_client import InfluxDBClient, Point, WritePrecision
-# from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
-
-# # Display all columns on print
-# pd.set_option('display.max_columns', None)
-
-# # Fixed point resolution of price cumulatives
-# PC_RESOLUTION = 112
-
-
-# def get_config() -> tp.Dict:
-#     '''
-#     Returns a `config` dict containing InfluxDB configuration parameters
-
-#     Outputs:
-#         [tp.Dict]
-#         token   [str]:  INFLUXDB_TOKEN env, InfluxDB token
-#         org     [str]:  INFLUXDB_ORG env, InfluxDB organization
-#         bucket  [str]:  INFLUXDB_BUCKET env, InfluxDB bucket
-#         source  [str]:  INFLUXDB_SOURCE env, InfluxDB source bucket
-#         url     [str]:  INFLUXDB_URL env, InfluxDB url
-#     '''
-#     return {
-#         "token": os.getenv('INFLUXDB_TOKEN'),
-#         "org": os.getenv('INFLUXDB_ORG'),
-#         "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_metrics_univ3"),
-#         "source": os.getenv('INFLUXDB_SOURCE', "ovl_univ3_1h"),
-#         "url": os.getenv("INFLUXDB_URL"),
-#     }
-
-
-# def create_client(config: tp.Dict) -> InfluxDBClient:
-#     '''
-#     Returns an InfluxDBClient initialized with config `url` & `token` params
-#     returned by `get_config`
-
-#     Inputs:
-#         [tp.Dict]
-#         token   [str]:  INFLUXDB_TOKEN env representing an InfluxDB token
-#         url     [str]:  INFLUXDB_URL env representing an InfluxDB url
-
-#     Outputs:
-#         [InfluxDBClient]: InfluxDB client connection instance
-#     '''
-#     return InfluxDBClient(
-#             url=config['url'],
-#             token=config['token'],
-#             debug=False)
-
-
-# def get_point_settings() -> PointSettings:
-#     point_settings = PointSettings(**{"type": "metrics-hourly"})
-#     point_settings.add_default_tag("influx-metrics", "ingest-data-frame")
-#     return point_settings
 
 
 def get_params() -> tp.Dict:
