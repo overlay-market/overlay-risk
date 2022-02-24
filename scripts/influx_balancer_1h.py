@@ -210,7 +210,6 @@ def write_cumulatives(config, vals):
                 ]
             )
     df = df.set_index("_time")
-    breakpoint()
 
     with InfluxDBClient(
             url=config['url'],
