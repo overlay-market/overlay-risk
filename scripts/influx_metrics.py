@@ -341,11 +341,11 @@ def calc_vars(alpha: float, beta: float, sigma: float, mu: float, t: int,
     '''
     q = 1 - np.array(alphas)
     scale_dist = pystable.create(alpha, beta, 1, 0, 1)
-    pystable.q(scale_dist, q, len(q))
+    qtile = pystable.q(scale_dist, q, len(q))
 
     sig = sigma * (t/alpha) ** (-1/alpha)
     mu = mu / t
-    pow = mu * n * t + sig * (n * t / alpha) ** (1 / alpha) * q
+    pow = mu * n * t + sig * (n * t / alpha) ** (1 / alpha) * np.array(qtile)
     return np.exp(pow) - 1
 
 
@@ -384,7 +384,7 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
                             fit_dist.contents.mu_1], *vars), axis=None)
 
     df = pd.DataFrame(data=data).T
-    df.columns = ['timestamp', 'mu', 'sigSqrd', *var_labels]
+    df.columns = ['timestamp', 'alpha', 'beta', 'sigma', 'mu', *var_labels]
     return df
 
 

@@ -13,8 +13,7 @@ influxdb-client = {extras = ["ciso"], version = "^1.16.0"}
 click = "^8.0.1"
 schedule = "^1.1.0"
 pystable = "^0.2.3"
-scipy = "^1.7.1"
-eth-brownie = "1.16.3"
+eth-brownie = { git = "https://github.com/deepsp94/brownie.git"}
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.2"
