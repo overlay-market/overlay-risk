@@ -1,11 +1,11 @@
 # overlay-risk
 
-Metrics to inform our choices for per-market risk parameters.
+Metrics to inform choices for per-market risk parameters.
 
 
 ## Assumptions
 
-We sample data from on-chain oracles and assume the underlying feed is driven by a [Levy process](https://en.wikipedia.org/wiki/L%C3%A9vy_process) of the form
+Data is sampled from on-chain oracles and the underlying feed is assumed to be driven by a [Levy process](https://en.wikipedia.org/wiki/L%C3%A9vy_process) of the form
 
 ```
 P_j = P_0 * e**(mu * j * T + sig * L(j*T))
@@ -16,9 +16,9 @@ where `L(j*T)` has [Levy stable](https://en.wikipedia.org/wiki/Stable_distributi
 
 ## Why?
 
-We need some way to assess the risk to the system. A good approach is to model the underlying feed value as being driven by a stochastic process, which allows us to estimate "VaR" for passive OVL holders, who act as the counterparty to all unbalanced trades.
+There should be some way to assess the risk to the system. A good approach is to model the underlying feed value as being driven by a stochastic process, which allows estimation of "VaR" for passive OVL holders, who act as the counterparty to all unbalanced trades.
 
-Calculation of our per-market risk metrics requires estimating distributional parameters for the underlying stochastic model. This repo aims to provide easy to access views for those parameters.
+Calculation of per-market risk metrics requires estimating distributional parameters for the underlying stochastic model. This repo aims to provide easy to access views for those parameters.
 
 
 ## Requirements
