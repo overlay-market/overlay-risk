@@ -16,7 +16,7 @@ ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
 # periods (in blocks) into the future at which we want VaR = 0
 NS = 5760 * np.arange(1, 61)  # 1d, 2d, 3d, ...., 60d
 
-# For plotting nvars
+# For plotting normalized var, ev, es
 TS = 240 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
 ALPHA = 0.05
 
@@ -45,7 +45,7 @@ def rescale(dist: pystable.STABLE_DIST, t: float) -> pystable.STABLE_DIST:
 
 
 def k(a: float, b: float, mu: float, sig: float,
-      n: float, v: float, g_inv: float, alphas: np.ndarray) -> np.ndarray:
+      n: float, g_inv: float, alphas: np.ndarray) -> np.ndarray:
     dst_y = pystable.create(alpha=a, beta=b, mu=mu*n,
                             sigma=sig*((n/a)**(1/a)), parameterization=1)
 
@@ -72,25 +72,24 @@ def k(a: float, b: float, mu: float, sig: float,
 
 
 def nvalue_at_risk(a: float, b: float, mu: float, sigma: float,
-                   k_n: float, v: float, g_inv: float, alpha: float,
+                   k_n: float, g_inv: float, alpha: float,
                    t: float) -> (float, float):
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
 
     # var long
-    cdf_x_ginv = pystable.cdf(x, [g_inv], 1)[0]
-    q_long = pystable.q(x, [cdf_x_ginv - alpha], 1)[0]
-    nvar_long = ((1-2*k_n)**(np.floor(t/v))) * (np.exp(q_long) - 1)
+    q_long = pystable.q(x, [1 - alpha], 1)[0]
+    nvar_long = np.exp(q_long - 2 * k_n * t) - 1
 
     # var short
     q_short = pystable.q(x, [alpha], 1)[0]
-    nvar_short = ((1-2*k_n)**(np.floor(t/v))) * (1 - np.exp(q_short))
+    nvar_short = np.exp(- 2 * k_n * t) * (2 - np.exp(q_short)) - 1
 
     return nvar_long, nvar_short
 
 
 def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
-                        k_n: float, v: float, g_inv: float, alpha: float,
+                        k_n: float, g_inv: float, alpha: float,
                         t: float) -> (float, float, float, float):
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
@@ -113,23 +112,25 @@ def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
 
 
 def nexpected_value(a: float, b: float, mu: float, sigma: float,
-                    k_n: float, v: float, g_inv_long: float, cp: float,
+                    k_n: float, g_inv_long: float, cp: float,
                     g_inv_short: float, t: float) -> (float, float):
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
-    oi_imb = ((1-2*k_n)**(np.floor(t/v)))
 
     def integrand(y): return pystable.pdf(x, [y], 1)[0] * np.exp(y)
 
     # expected value long
     cdf_x_ginv = pystable.cdf(x, [g_inv_long], 1)[0]
     integral_long, _ = integrate.quad(integrand, -np.inf, g_inv_long)
-    nev_long = oi_imb * (integral_long - cdf_x_ginv + cp*(1-cdf_x_ginv))
+    nev_long = np.exp(-2*k_n*t) * (
+        integral_long - cdf_x_ginv + cp*(1-cdf_x_ginv))
+    nev_long += np.exp(-2*k_n*t) - 1
 
     # expected value short
     cdf_x_ginv_one = pystable.cdf(x, [g_inv_short], 1)[0]
     integral_short, _ = integrate.quad(integrand, -np.inf, g_inv_short)
-    nev_short = oi_imb * (2*cdf_x_ginv_one - 1 - integral_short)
+    nev_short = - np.exp(-2*k_n*t) * (integral_short + 1 - 2 * cdf_x_ginv_one)
+    nev_short += np.exp(-2*k_n*t) - 1
 
     return nev_long, nev_short
 
@@ -169,7 +170,7 @@ def main():
     for n in NS:
         fundings = k(dst.contents.alpha, dst.contents.beta,
                      dst.contents.mu_1, dst.contents.sigma,
-                     n, TC, g_inv, ALPHAS)
+                     n, g_inv, ALPHAS)
         ks.append(fundings)
 
     df_ks = pd.DataFrame(
@@ -203,7 +204,7 @@ def main():
             nvar_long, nvar_short = nvalue_at_risk(
                 a=dst.contents.alpha, b=dst.contents.beta,
                 mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                k_n=k_n, v=TC, g_inv=g_inv, alpha=ALPHA, t=t)
+                k_n=k_n, g_inv=g_inv, alpha=ALPHA, t=t)
             nvar_t_long.append(nvar_long)
             nvar_t_short.append(nvar_short)
 
@@ -212,7 +213,7 @@ def main():
                 nexpected_shortfall(
                     a=dst.contents.alpha, b=dst.contents.beta,
                     mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                    k_n=k_n, v=TC, g_inv=g_inv, alpha=ALPHA, t=t)
+                    k_n=k_n, g_inv=g_inv, alpha=ALPHA, t=t)
             ness_t_long.append(nes_long)
             ness_t_short.append(nes_short)
 
@@ -221,7 +222,7 @@ def main():
                 nexpected_value(
                     a=dst.contents.alpha, b=dst.contents.beta,
                     mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                    k_n=k_n, v=TC, g_inv_long=g_inv, cp=CP,
+                    k_n=k_n, g_inv_long=g_inv, cp=CP,
                     g_inv_short=g_inv_one, t=t)
             nevs_t_long.append(nev_long)
             nevs_t_short.append(nev_short)
