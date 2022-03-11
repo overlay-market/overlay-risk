@@ -7,18 +7,17 @@ from scipy import integrate
 
 FILENAME = "data-1625069716_weth-usdc-twap"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-T = 40  # 10m candle size on datafile
-TC = 40  # 10 m compounding period
+T = 40  # 10m candle size on datafile (in blocks)
 CP = 4  # 5x payoff cap
+SECS_PER_BLOCK = 15
 
 # uncertainties
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
-# periods into the future at which we want 1/compoundingFactor to start
-# exceeding VaR from priceFrame: 1/(1-2k)**n >= VaR[(P(n)/P(0) - 1)]
-NS = 480 * np.arange(1, 85)  # 2h, 4h, 6h, ...., 7d
+# periods (in blocks) into the future at which we want VaR = 0
+NS = 5760 * np.arange(1, 61)  # 1d, 2d, 3d, ...., 60d
 
 # For plotting nvars
-TS = 240 * np.arange(1, 720)  # 1h, 2h, 3h, ...., 30d
+TS = 240 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
 ALPHA = 0.05
 
 
@@ -50,22 +49,26 @@ def k(a: float, b: float, mu: float, sig: float,
     dst_y = pystable.create(alpha=a, beta=b, mu=mu*n,
                             sigma=sig*((n/a)**(1/a)), parameterization=1)
 
-    # calc quantile accounting for cap
-    cdf_y_ginv = pystable.cdf(dst_y, [g_inv], 1)[0]
-    qs = pystable.q(dst_y, list(cdf_y_ginv-alphas), len(alphas))
-    qs = np.array(qs)
+    # k long needed for VaR = 0 at n in future
+    # NOTE: divide by 1/2T_alpha at return
+    qs_long = pystable.q(dst_y, list(1-alphas), len(alphas))
+    qs_long = np.array(qs_long)
+    k_long = qs_long
 
-    # factor at "infty"
-    factor_long = np.exp(qs)
-    # short has less risk. just needs to have a funding rate to decay
-    factor_short = 1 + np.zeros(len(alphas))
+    # k short needed for VaR = 0 at n in future
+    # NOTE: divide by 1/2T_alpha at return
+    qs_short = pystable.q(dst_y, list(alphas), len(alphas))
+    qs_short = np.array(qs_short)
+    k_short = np.log(2 - np.exp(qs_short))
 
     # Compare long vs short and return max of the two
-    factor = np.maximum(factor_long, factor_short)
+    k_max = np.maximum(k_long, k_short)
 
-    # want (1-2k)**(n/v) = 1/factor to set k for v timeframe
-    # n/v is # of compound periods that pass
-    return (1 - (1/factor)**(v/n))/2.0
+    # calculate t_alpha: i.e. get n in seconds in the future
+    # divide by 1/2T_alpha to get k value then return
+    t_alpha = n * SECS_PER_BLOCK
+    k_max = k_max / (2 * t_alpha)
+    return k_max
 
 
 def nvalue_at_risk(a: float, b: float, mu: float, sigma: float,

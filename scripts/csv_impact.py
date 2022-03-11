@@ -5,9 +5,9 @@ import numpy as np
 from scipy import integrate
 
 
-FILENAME = "ethusd_01012020_08232021"
+FILENAME = "data-1625069716_weth-usdc-twap"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-T = 4  # 1m candle size on datafile
+T = 40  # 10m candle size on datafile
 V = 40  # 10 m shorter TWAP
 CP = 4  # 5x payoff cap
 
