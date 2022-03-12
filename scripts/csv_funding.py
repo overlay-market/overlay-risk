@@ -93,17 +93,22 @@ def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
                         t: float) -> (float, float, float, float):
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
-    oi_imb = ((1-2*k_n)**(np.floor(t/v)))
 
     def integrand(y): return pystable.pdf(x, [y], 1)[0] * np.exp(y)
 
     # expected shortfall long
     cdf_x_ginv = pystable.cdf(x, [g_inv], 1)[0]
-    q_min_long = pystable.q(x, [cdf_x_ginv - alpha], 1)[0]
-    integral_long, _ = integrate.quad(integrand, q_min_long, g_inv)
-    nes_long = oi_imb * (integral_long/alpha - 1)
+    q_min_long = pystable.q(x, [1 - alpha], 1)[0]
+    if g_inv > q_min_long:
+        integral_long, _ = integrate.quad(integrand, q_min_long, g_inv)
+        nes_long = (
+            np.exp(-2 * k_n * t) / alpha) * (integral_long + 1 - cdf_x_ginv) \
+            - 1
+    else:
+        nes_long = 0
 
     # expected shortfall short
+    # TODO:
     q_max_short = pystable.q(x, [alpha], 1)[0]
     integral_short, _ = integrate.quad(integrand, -np.inf, q_max_short)
     nes_short = oi_imb * (1 - integral_short/alpha)
