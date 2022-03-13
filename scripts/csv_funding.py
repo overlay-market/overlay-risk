@@ -7,17 +7,16 @@ from scipy import integrate
 
 FILENAME = "data-1625069716_weth-usdc-twap"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-T = 40  # 10m candle size on datafile (in blocks)
-CP = 4  # 5x payoff cap
-SECS_PER_BLOCK = 15
+T = 600  # 10m candle size on datafile (in blocks)
+CP = 10  # 10x payoff cap
 
 # uncertainties
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
-# periods (in blocks) into the future at which we want VaR = 0
-NS = 5760 * np.arange(1, 61)  # 1d, 2d, 3d, ...., 60d
+# time periods (in seconds) into the future at which we want VaR = 0
+NS = 86400 * np.arange(1, 61)  # 1d, 2d, 3d, ...., 60d
 
 # For plotting normalized var, ev, es
-TS = 240 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
+TS = 3600 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
 ALPHA = 0.05
 
 
@@ -66,7 +65,7 @@ def k(a: float, b: float, mu: float, sig: float,
 
     # calculate t_alpha: i.e. get n in seconds in the future
     # divide by 1/2T_alpha to get k value then return
-    t_alpha = n * SECS_PER_BLOCK
+    t_alpha = n
     k_max = k_max / (2 * t_alpha)
     return k_max
 
@@ -89,7 +88,7 @@ def nvalue_at_risk(a: float, b: float, mu: float, sigma: float,
 
 
 def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
-                        k_n: float, g_inv: float, alpha: float,
+                        k_n: float, g_inv: float, cp: float, alpha: float,
                         t: float) -> (float, float, float, float):
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
@@ -102,8 +101,8 @@ def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
     if g_inv > q_min_long:
         integral_long, _ = integrate.quad(integrand, q_min_long, g_inv)
         nes_long = (
-            np.exp(-2 * k_n * t) / alpha) * (integral_long + 1 - cdf_x_ginv) \
-            - 1
+            np.exp(-2 * k_n * t) / alpha) * \
+            (integral_long + (1+cp) * (1 - cdf_x_ginv)) - 1
     else:
         nes_long = 0
 
@@ -111,7 +110,7 @@ def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
     # TODO:
     q_max_short = pystable.q(x, [alpha], 1)[0]
     integral_short, _ = integrate.quad(integrand, -np.inf, q_max_short)
-    nes_short = oi_imb * (1 - integral_short/alpha)
+    nes_short = np.exp(-2 * k_n * t) * (2 - integral_short / alpha) - 1
 
     return nes_long, nes_short, nes_long * alpha, nes_short * alpha
 
@@ -159,6 +158,7 @@ def main():
         '''
     )
 
+    # rescale to per second distribution
     dst = rescale(dst, 1/T)
     print(
         f'''
@@ -218,7 +218,7 @@ def main():
                 nexpected_shortfall(
                     a=dst.contents.alpha, b=dst.contents.beta,
                     mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                    k_n=k_n, g_inv=g_inv, alpha=ALPHA, t=t)
+                    k_n=k_n, g_inv=g_inv, cp=CP, alpha=ALPHA, t=t)
             ness_t_long.append(nes_long)
             ness_t_short.append(nes_short)
 
