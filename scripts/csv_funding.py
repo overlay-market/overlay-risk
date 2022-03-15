@@ -62,7 +62,7 @@ def k(a: float, b: float, mu: float, sig: float,
     k_short = (1/(2 * n)) * ln[ 2 - F^{-1}_{X_t}(alpha) ]
     """
     dst_y = pystable.create(alpha=a, beta=b, mu=mu*n,
-                            sigma=sig*((n/a)**(1/a)), parameterization=1)
+                            sigma=sig*(n**(1/a)), parameterization=1)
 
     # k long needed for VaR = 0 at n in future
     # NOTE: divide by 1/2T_alpha at return
@@ -100,7 +100,7 @@ def nvalue_at_risk(a: float, b: float, mu: float, sigma: float,
         VaR = Q * [ e**(-2k*t) * ( 2 - e**(F^{-1}_{X_t}(alpha)) ) - 1 ]
     """
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
-                        sigma=sigma*(t/a)**(1/a), parameterization=1)
+                        sigma=sigma * (t**(1/a)), parameterization=1)
 
     # var long
     q_long = pystable.q(x, [1 - alpha], 1)[0]
@@ -133,7 +133,7 @@ def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
         ] - 1}
     """
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
-                        sigma=sigma*(t/a)**(1/a), parameterization=1)
+                        sigma=sigma*(t**(1/a)), parameterization=1)
 
     def integrand(y): return pystable.pdf(x, [y], 1)[0] * np.exp(y)
 
@@ -181,7 +181,7 @@ def nexpected_value(a: float, b: float, mu: float, sigma: float,
         ] - 1}
     """
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
-                        sigma=sigma*(t/a)**(1/a), parameterization=1)
+                        sigma=sigma*(t**(1/a)), parameterization=1)
 
     def integrand(y): return pystable.pdf(x, [y], 1)[0] * np.exp(y)
 

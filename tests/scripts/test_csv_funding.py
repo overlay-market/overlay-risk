@@ -37,19 +37,6 @@ class TestCsvFunding(unittest.TestCase):
         df = pd.read_csv(base, sep=',')
         return df.values[0]
 
-    def get_ks(self, path) -> np.ndarray:
-        '''
-        Helper to return expected ks for stable params and uncertainty files
-        '''
-        base = os.path.dirname(os.path.abspath(__file__))
-        base = os.path.abspath(os.path.join(base, os.pardir))
-        base = os.path.join(base, 'helpers')
-        base = os.path.join(base, path)
-        base = os.path.join(base, 'get-ks.csv')
-
-        df = pd.read_csv(base, sep=',')
-        return df.values[0]
-
     def get_n(self, path) -> float:
         '''
         Helper to return n to use in all calculations
@@ -88,6 +75,32 @@ class TestCsvFunding(unittest.TestCase):
 
         df = pd.read_csv(base, sep=',')
         return float(df['cp'])
+
+    def get_ks(self, path) -> np.ndarray:
+        '''
+        Helper to return expected ks for stable params and uncertainty files
+        '''
+        base = os.path.dirname(os.path.abspath(__file__))
+        base = os.path.abspath(os.path.join(base, os.pardir))
+        base = os.path.join(base, 'helpers')
+        base = os.path.join(base, path)
+        base = os.path.join(base, 'get-ks.csv')
+
+        df = pd.read_csv(base, sep=',')
+        return df.values[0]
+
+    def get_value_at_risks(self, path) -> np.ndarray:
+        '''
+        Helper to return expected VaRs for stable params and uncertainty files
+        '''
+        base = os.path.dirname(os.path.abspath(__file__))
+        base = os.path.abspath(os.path.join(base, os.pardir))
+        base = os.path.join(base, 'helpers')
+        base = os.path.join(base, path)
+        base = os.path.join(base, 'get-vars.csv')
+
+        df = pd.read_csv(base, sep=',')
+        return df.values[0]
 
     def test_gaussian(self):
         expect = pystable.create(alpha=2.0, beta=0.0, mu=0.0, sigma=1.0,
@@ -142,7 +155,6 @@ class TestCsvFunding(unittest.TestCase):
         nd_alphas = self.get_alphas(path)
 
         alpha = nd_alphas[0]
-        n = self.get_n(path)
         k = self.get_ks(path)[0]
         t = self.get_t(path)
 
@@ -150,27 +162,11 @@ class TestCsvFunding(unittest.TestCase):
         actual_vars = np.array(cfunding.nvalue_at_risk(
             a=df_params['alpha'], b=df_params['beta'],
             mu=df_params['mu'], sigma=df_params['sigma'],
-            k_n=k, n=n, alpha=alpha, t=t))
+            k_n=k, alpha=alpha, t=t))
         np_testing.assert_allclose(expect_vars, actual_vars)
 
     def test_nexpected_shortfall(self):
-        path = 'csv-funding'
-        df_params = self.get_stable_params(path)
-        nd_alphas = self.get_alphas(path)
-
-        alpha = nd_alphas[0]
-        k = self.get_ks(path)[0]
-        t = self.get_t(path)
-
-        cp = self.get_cp(path)
-        g_inv = np.log(1+cp)
-
-        expect_ess = self.get_expected_shortfalls(path)
-        actual_ess = np.array(cfunding.nexpected_shortfall(
-            a=df_params['alpha'], b=df_params['beta'],
-            mu=df_params['mu'], sigma=df_params['sigma'],
-            k_n=k, g_inv=g_inv, cp=cp, alpha=alpha, t=t))
-        np_testing.assert_allclose(expect_ess, actual_ess)
+        pass
 
     def test_nexpected_value(self):
         pass
