@@ -102,6 +102,19 @@ class TestCsvFunding(unittest.TestCase):
         df = pd.read_csv(base, sep=',')
         return df.values[0]
 
+    def get_expected_values(self, path) -> np.ndarray:
+        '''
+        Helper to return expected EVs for stable params and uncertainty files
+        '''
+        base = os.path.dirname(os.path.abspath(__file__))
+        base = os.path.abspath(os.path.join(base, os.pardir))
+        base = os.path.join(base, 'helpers')
+        base = os.path.join(base, path)
+        base = os.path.join(base, 'get-evs.csv')
+
+        df = pd.read_csv(base, sep=',')
+        return df.values[0]
+
     def test_gaussian(self):
         expect = pystable.create(alpha=2.0, beta=0.0, mu=0.0, sigma=1.0,
                                  parameterization=1)
@@ -169,4 +182,20 @@ class TestCsvFunding(unittest.TestCase):
         pass
 
     def test_nexpected_value(self):
-        pass
+        path = 'csv-funding'
+        df_params = self.get_stable_params(path)
+
+        k = self.get_ks(path)[0]
+        t = self.get_t(path)
+        cp = self.get_cp(path)
+
+        g_inv_long = np.log(1+cp)
+        g_inv_short = np.log(2)
+
+        expect_evs = self.get_expected_values(path)
+        actual_evs = np.array(cfunding.nexpected_value(
+            a=df_params['alpha'], b=df_params['beta'],
+            mu=df_params['mu'], sigma=df_params['sigma'],
+            k_n=k, g_inv_long=g_inv_long, cp=cp,
+            g_inv_short=g_inv_short, t=t))
+        np_testing.assert_allclose(expect_evs, actual_evs)
