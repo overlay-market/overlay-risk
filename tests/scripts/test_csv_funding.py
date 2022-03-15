@@ -102,6 +102,19 @@ class TestCsvFunding(unittest.TestCase):
         df = pd.read_csv(base, sep=',')
         return df.values[0]
 
+    def get_expected_shortfalls(self, path) -> np.ndarray:
+        '''
+        Helper to return expected ESs for stable params and uncertainty files
+        '''
+        base = os.path.dirname(os.path.abspath(__file__))
+        base = os.path.abspath(os.path.join(base, os.pardir))
+        base = os.path.join(base, 'helpers')
+        base = os.path.join(base, path)
+        base = os.path.join(base, 'get-ess.csv')
+
+        df = pd.read_csv(base, sep=',')
+        return df.values[0]
+
     def get_expected_values(self, path) -> np.ndarray:
         '''
         Helper to return expected EVs for stable params and uncertainty files
@@ -179,7 +192,24 @@ class TestCsvFunding(unittest.TestCase):
         np_testing.assert_allclose(expect_vars, actual_vars)
 
     def test_nexpected_shortfall(self):
-        pass
+        path = 'csv-funding'
+        df_params = self.get_stable_params(path)
+        nd_alphas = self.get_alphas(path)
+
+        alpha = nd_alphas[0]
+        k = self.get_ks(path)[0]
+        t = self.get_t(path)
+        cp = self.get_cp(path)
+
+        g_inv = np.log(1+cp)
+
+        expect_ess = self.get_expected_shortfalls(path)
+        actual_ess = np.array(cfunding.nexpected_shortfall(
+            a=df_params['alpha'], b=df_params['beta'],
+            mu=df_params['mu'], sigma=df_params['sigma'],
+            k_n=k, g_inv=g_inv, cp=cp, alpha=alpha,
+            t=t))
+        np_testing.assert_allclose(expect_ess, actual_ess)
 
     def test_nexpected_value(self):
         path = 'csv-funding'
