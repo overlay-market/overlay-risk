@@ -4,6 +4,8 @@ import numpy as np
 
 from scipy import integrate
 
+from stable.utils import gaussian, rescale
+
 
 FILENAME = "data-1625069716_weth-usdc-twap"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
@@ -20,31 +22,15 @@ TS = 3600 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
 ALPHA = 0.05
 
 
-def gaussian():
-    return pystable.create(alpha=2.0, beta=0.0, mu=0.0,
-                           sigma=1.0, parameterization=1)
-
-
-def rescale(dist: pystable.STABLE_DIST, t: float) -> pystable.STABLE_DIST:
-    mu = dist.contents.mu_1 * t
-    if t > 1:
-        sigma = dist.contents.sigma * \
-            (t/dist.contents.alpha)**(1/dist.contents.alpha)
-    else:
-        sigma = dist.contents.sigma * \
-            ((1/t)/dist.contents.alpha)**(-1/dist.contents.alpha)
-
-    return pystable.create(
-        alpha=dist.contents.alpha,
-        beta=dist.contents.beta,
-        mu=mu,
-        sigma=sigma,
-        parameterization=1
-    )
-
-
 def k(a: float, b: float, mu: float, sig: float,
-      n: float, g_inv: float, alphas: np.ndarray) -> np.ndarray:
+      n: float, alphas: np.ndarray) -> np.ndarray:
+    """
+    Computed funding constant calibration `k` given uncertainty
+    levels `alphas` and anchor time `n`.
+
+    k_long = (1/(2 * n)) * F^{-1}_{X_t}(1-alpha)
+    k_short = (1/(2 * n)) * ln[ 2 - F^{-1}_{X_t}(alpha) ]
+    """
     dst_y = pystable.create(alpha=a, beta=b, mu=mu*n,
                             sigma=sig*((n/a)**(1/a)), parameterization=1)
 
@@ -71,8 +57,18 @@ def k(a: float, b: float, mu: float, sig: float,
 
 
 def nvalue_at_risk(a: float, b: float, mu: float, sigma: float,
-                   k_n: float, g_inv: float, alpha: float,
-                   t: float) -> (float, float):
+                   k_n: float, alpha: float, t: float) -> (float, float):
+    """
+    Computed value at risk to the protocol at time `t` in the future
+    for an initial open interest imbalance to one side, given `k=k_n`
+    calibration for the market's funding constant.
+
+    if Q_long = Q and Q_short = 0:
+        VaR = Q * [ e**(F^{-1}_{X_t}(1-alpha) - 2k*t) - 1 ]
+
+    else if Q_short = Q and Q_long = 0:
+        VaR = Q * [ e**(-2k*t) * ( 2 - e**(F^{-1}_{X_t}(alpha)) ) - 1 ]
+    """
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
 
@@ -90,6 +86,22 @@ def nvalue_at_risk(a: float, b: float, mu: float, sigma: float,
 def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
                         k_n: float, g_inv: float, cp: float, alpha: float,
                         t: float) -> (float, float, float, float):
+    """
+    Computed expected shortfall (conditional & unconditional) at time `t`
+    in the future for an initial open interest imbalance to one side, given
+    `k=k_n` calibration for the market's funding constant and payoff cap `cp`.
+
+    if Q_long = Q and Q_short = 0:
+        ES = Q * { (e**(-2k*t) / alpha) * [
+            int_{F^{-1}_{X_t}(1-alpha)}^{g^{-1}(C_p)} dx e**x * f_{X_t}
+            + (1 + C_p) * (1 - F_{X_t}(C_p))
+        ] - 1 }
+
+    else if Q_short = Q and Q_long = 0:
+        ES = Q * { (e**(-2k*t) / alpha) * [
+            2 - (1/alpha) * int_{-infty}^{F^{-1}_{X_t}(alpha)} dx e**x *f_{X_t}
+        ] - 1}
+    """
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
 
@@ -98,16 +110,16 @@ def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
     # expected shortfall long
     cdf_x_ginv = pystable.cdf(x, [g_inv], 1)[0]
     q_min_long = pystable.q(x, [1 - alpha], 1)[0]
+
+    integral_long = 0
     if g_inv > q_min_long:
         integral_long, _ = integrate.quad(integrand, q_min_long, g_inv)
-        nes_long = (
-            np.exp(-2 * k_n * t) / alpha) * \
-            (integral_long + (1+cp) * (1 - cdf_x_ginv)) - 1
-    else:
-        nes_long = 0
+
+    nes_long = (
+        np.exp(-2 * k_n * t) / alpha) * \
+        (integral_long + (1+cp) * (1 - cdf_x_ginv)) - 1
 
     # expected shortfall short
-    # TODO:
     q_max_short = pystable.q(x, [alpha], 1)[0]
     integral_short, _ = integrate.quad(integrand, -np.inf, q_max_short)
     nes_short = np.exp(-2 * k_n * t) * (2 - integral_short / alpha) - 1
@@ -118,6 +130,26 @@ def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
 def nexpected_value(a: float, b: float, mu: float, sigma: float,
                     k_n: float, g_inv_long: float, cp: float,
                     g_inv_short: float, t: float) -> (float, float):
+    """
+    Computed expected value at time `t` in the future for an initial
+    open interest imbalance to one side, given `k=k_n` calibration for
+    the market's funding constant and payoff cap `cp`.
+
+    TODO: test expressions are the same as if did integral
+    TODO: with min(g(x), 1+C_p)
+
+    if Q_long = Q and Q_short = 0:
+        EV = Q * { e**(-2k*t) * [
+            int_{-infty}^{g^{-1}(C_P)} dx e**x * f_{X_t}
+            + (1+C_P) * (1 - F_{X_t}(g^{-1}(C_P)))
+        ] - 1 }
+
+    else if Q_short = Q and Q_long = 0:
+        EV = Q * { e**(-2k*t) * [
+            2 * F_{X_t}(g^{-1}(1))
+            - int_{-infty}^{g^{-1}(1)} dx e**x * f_{X_t}
+        ] - 1}
+    """
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
                         sigma=sigma*(t/a)**(1/a), parameterization=1)
 
@@ -126,15 +158,12 @@ def nexpected_value(a: float, b: float, mu: float, sigma: float,
     # expected value long
     cdf_x_ginv = pystable.cdf(x, [g_inv_long], 1)[0]
     integral_long, _ = integrate.quad(integrand, -np.inf, g_inv_long)
-    nev_long = np.exp(-2*k_n*t) * (
-        integral_long - cdf_x_ginv + cp*(1-cdf_x_ginv))
-    nev_long += np.exp(-2*k_n*t) - 1
+    nev_long = np.exp(-2*k_n*t) * (integral_long + (1+cp)*(1-cdf_x_ginv)) - 1
 
     # expected value short
     cdf_x_ginv_one = pystable.cdf(x, [g_inv_short], 1)[0]
     integral_short, _ = integrate.quad(integrand, -np.inf, g_inv_short)
-    nev_short = - np.exp(-2*k_n*t) * (integral_short + 1 - 2 * cdf_x_ginv_one)
-    nev_short += np.exp(-2*k_n*t) - 1
+    nev_short = np.exp(-2*k_n*t) * (2 * cdf_x_ginv_one - integral_short) - 1
 
     return nev_long, nev_short
 
@@ -173,9 +202,9 @@ def main():
     g_inv_one = np.log(2)
     ks = []
     for n in NS:
-        fundings = k(dst.contents.alpha, dst.contents.beta,
-                     dst.contents.mu_1, dst.contents.sigma,
-                     n, g_inv, ALPHAS)
+        fundings = k(a=dst.contents.alpha, b=dst.contents.beta,
+                     mu=dst.contents.mu_1, sig=dst.contents.sigma,
+                     n=n, alphas=ALPHAS)
         ks.append(fundings)
 
     df_ks = pd.DataFrame(
@@ -209,7 +238,7 @@ def main():
             nvar_long, nvar_short = nvalue_at_risk(
                 a=dst.contents.alpha, b=dst.contents.beta,
                 mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                k_n=k_n, g_inv=g_inv, alpha=ALPHA, t=t)
+                k_n=k_n, alpha=ALPHA, t=t)
             nvar_t_long.append(nvar_long)
             nvar_t_short.append(nvar_short)
 

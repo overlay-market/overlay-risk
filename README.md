@@ -16,7 +16,7 @@ where `L(j*T)` has [Levy stable](https://en.wikipedia.org/wiki/Stable_distributi
 
 ## Why?
 
-There should be some way to assess risk to the system. A good approach is to model the underlying feed value as being driven by a stochastic process, which allows estimation "VaR" for passive OVL holders, who act as the counterparty to all unbalanced trades.
+There should be some way to assess risk to the system. A good approach is to model the underlying feed value as being driven by a stochastic process, which allows estimation of "VaR" for passive OVL holders, who act as the counterparty to all unbalanced trades.
 
 Calculation of per-market risk metrics requires estimating distributional parameters for the underlying stochastic model. This repo aims to provide easy to access views for those parameters.
 
