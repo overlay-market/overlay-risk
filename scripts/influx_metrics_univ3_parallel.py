@@ -8,6 +8,7 @@ import logging
 import math
 import time
 import gc
+from concurrent.futures import ProcessPoolExecutor
 
 from datetime import datetime, timedelta
 
@@ -36,7 +37,7 @@ def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
-        "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_metrics_univ3"),
+        "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_metrics_univ3_parallel"),
         "source": os.getenv('INFLUXDB_SOURCE', "ovl_univ3_1h"),
         "url": os.getenv("INFLUXDB_URL"),
     }
@@ -170,7 +171,7 @@ def find_start(api, quote, config, params) -> int:
     if (len(r.index) > 0):
         return math.floor(datetime.timestamp(
             r.iloc[0]['_time']))
-    else:
+    # else:
     #     return math.floor(
     #             int(
     #                 datetime.timestamp(
@@ -178,6 +179,7 @@ def find_start(api, quote, config, params) -> int:
     #                     )
     #                 )
     #             )
+    else:
         return 1630800000
 
 
@@ -485,14 +487,51 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
     return df
 
 
-def get_stats(
-        timestamp: int,
-        samples: tp.List[np.ndarray],
-        p: tp.Dict) -> tp.List[pd.DataFrame]:
+def get_stats(args: tp.Tuple) -> tp.List[pd.DataFrame]:
+    (timestamp, samples, p) = args
+    print('timestamp: ', datetime.fromtimestamp(timestamp))
     return [get_stat(timestamp, sample, p) for sample in samples]
 
 
-# SEE: get_params() for more info on setup
+def get_stats_calls(tlist: tp.List,
+                    twaps_all: tp.List[pd.DataFrame],
+                    p: tp.Dict) -> tp.List[tp.Tuple]:
+    calls = []
+    for ts in tlist:
+        timestamp = int(ts.timestamp())
+        end_twap = ts.timestamp()
+        lookb_wndw = p['points']*24*60*60
+        start_twap = (ts-timedelta(seconds=lookb_wndw)).timestamp()
+        twaps =\
+            [
+                twaps_all[0][(twaps_all[0].timestamp >= start_twap)
+                             & (twaps_all[0].timestamp <= end_twap)],
+                twaps_all[1][(twaps_all[1].timestamp >= start_twap)
+                             & (twaps_all[1].timestamp <= end_twap)]
+            ]
+        samples = get_samples_from_twaps(twaps)
+        calls.append((timestamp, samples, p))
+    return calls
+
+
+def get_final_df(stats):
+    stats_0 = [stats[i][0] for i in range(len(stats))]
+    stats_1 = [stats[i][1] for i in range(len(stats))]
+
+    def final_df(lst, i):
+        stats_df = pd.concat(lst)
+        stats_df.reset_index(inplace=True)
+        stats_df.drop('index', axis=1, inplace=True)
+        stats_df.loc['_type'] = f"price{i}Cumulative"
+        return stats_df
+
+    return final_df(stats_0, 0)\
+        .append(
+            final_df(stats_1, 1),
+            ignore_index=True
+            )
+
+
 def main():
     config = get_config()
     params = get_params()
@@ -538,61 +577,55 @@ def main():
                 print("Failed to generate TWAPs")
                 logging.exception(e)
 
-            loop_counter = 0
-            try:
-                for ts in ts_list:
-                    loop_counter += 1
-                    timestamp = int(ts.timestamp())
-                    print('timestamp: ', datetime.fromtimestamp(timestamp))
-                    end_twap = ts.timestamp()
-                    lookb_wndw = params['points']*24*60*60
-                    start_twap = (ts-timedelta(seconds=lookb_wndw)).timestamp()
-                    twaps =\
-                        [
-                         twaps_all[0][(twaps_all[0].timestamp >= start_twap)
-                                      & (twaps_all[0].timestamp <= end_twap)],
-                         twaps_all[1][(twaps_all[1].timestamp >= start_twap)
-                                      & (twaps_all[1].timestamp <= end_twap)]
-                        ]
-                    samples = get_samples_from_twaps(twaps)
-                    stats = get_stats(timestamp, samples, params)
-                    for i, stat in enumerate(stats):
-                        token_name = q[f'token{i}_name']
-                        point = Point("mem")\
-                            .tag("id", q['id'])\
-                            .tag('token_name', token_name)\
-                            .tag("_type", f"price{i}Cumulative")\
-                            .time(
-                                datetime.utcfromtimestamp(
-                                        float(stat['timestamp'])
-                                        ),
-                                WritePrecision.NS
-                            )
+            batch_size = 125
+            ts_list_batches = [ts_list[i:i+batch_size] 
+                               for i in range(0, len(ts_list), batch_size)]
+            for sub_ts_list in ts_list_batches:
+                print(f"Calculations started for new batch of {q['id']}")
+                get_stats_vals = []
+                with ProcessPoolExecutor() as executor:
+                    for item in executor.map(
+                            get_stats,
+                            get_stats_calls(sub_ts_list, twaps_all, params)
+                            ):
+                        get_stats_vals.append(item)
 
-                        for col in stat.columns:
-                            if col != 'timestamp':
-                                point = point.field(col, float(stat[col]))
+                df = get_final_df(get_stats_vals)
 
-                        print(f"Writing {q['id']} for price{i}Cumulative...")
-                        write_api.write(config['bucket'], config['org'], point)
+                with InfluxDBClient(
+                        url=config['url'],
+                        token=config['token'],
+                        org=config['org']
+                        ) as client:
 
-                    if loop_counter > 500:
-                        # release memory periodically
-                        # to avoid R14 error (Heroku)
-                        del twaps
-                        del samples
-                        del stats
-                        del stat
-                        gc.collect()
-                        print("Memory freed up")
-                        loop_counter = 0
+                    print("Start ingestion")
 
-            except Exception as e:
-                print("Failed to write quote stats to influx")
-                logging.exception(e)
+                    write_api = client.write_api(
+                        write_options=SYNCHRONOUS,
+                        point_settings=get_point_settings())
 
-            del twaps_all
-            gc.collect()
+                    j = 1
+                    while j == 1:
+                        try:
+                            write_api.write(bucket=config['bucket'],
+                                            record=df,
+                                            data_frame_measurement_name="mem",
+                                            data_frame_tag_columns=[
+                                                'id', 'token_name', '_type'
+                                                ]
+                                            )
+                            j = 0
+                            print("Ingested to influxdb")
+                        except Exception as e:
+                            err_cls = e.__class__
+                            err_msg = str(e)
+                            msg = f'''
+                            Error type = {err_cls}
+                            Error message = {err_msg}
+                            Wait 5 secs
+                            '''
+                            print(msg)
+                            continue
 
         print("Metrics are up to date. Wait 5 mins.")
         time.sleep(300)
