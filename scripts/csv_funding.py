@@ -20,13 +20,11 @@ TS = 3600 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
 ALPHA = 0.05
 
 
-# TODO: test
 def gaussian():
     return pystable.create(alpha=2.0, beta=0.0, mu=0.0,
                            sigma=1.0, parameterization=1)
 
 
-# TODO: test
 def rescale(dist: pystable.STABLE_DIST, t: float) -> pystable.STABLE_DIST:
     """
     Rescales stable distribution using scaling property.
@@ -164,9 +162,6 @@ def nexpected_value(a: float, b: float, mu: float, sigma: float,
     Computed expected value at time `t` in the future for an initial
     open interest imbalance to one side, given `k=k_n` calibration for
     the market's funding constant and payoff cap `cp`.
-
-    TODO: test expressions are the same as if did integral
-    TODO: with min(g(x), 1+C_p)
 
     if Q_long = Q and Q_short = 0:
         EV = Q * { e**(-2k*t) * [
