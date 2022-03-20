@@ -7,12 +7,11 @@ import typing as tp
 import logging
 import math
 import time
-import gc
 from concurrent.futures import ProcessPoolExecutor
 
 from datetime import datetime, timedelta
 
-from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
 
 # Display all columns on print
@@ -37,7 +36,7 @@ def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
-        "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_metrics_univ3_parallel"),
+        "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_parallel_check"),
         "source": os.getenv('INFLUXDB_SOURCE', "ovl_univ3_1h"),
         "url": os.getenv("INFLUXDB_URL"),
     }
@@ -107,7 +106,7 @@ def get_quote_path() -> str:
 
     '''
     base = os.path.dirname(os.path.abspath(__file__))
-    qp = 'constants/univ3_quotes.json'
+    qp = 'constants/univ3_quotes_simple.json'
     return os.path.join(base, qp)
 
 
@@ -171,16 +170,8 @@ def find_start(api, quote, config, params) -> int:
     if (len(r.index) > 0):
         return math.floor(datetime.timestamp(
             r.iloc[0]['_time']))
-    # else:
-    #     return math.floor(
-    #             int(
-    #                 datetime.timestamp(
-    #                     datetime.now() - timedelta(days=params['data_start'])
-    #                     )
-    #                 )
-    #             )
     else:
-        return 1630800000
+        return quote['time_deployed'] + (91*24*60*60)
 
 
 def list_of_timestamps(api, quote, config, start_ts) -> tp.List:
@@ -478,8 +469,10 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
         for alpha in alphas
     ]
 
-    data = np.concatenate(([timestamp, fit_dist.contents.alpha,
-                            fit_dist.contents.beta, fit_dist.contents.sigma,
+    data = np.concatenate(([datetime.utcfromtimestamp(float(timestamp)),
+                            fit_dist.contents.alpha,
+                            fit_dist.contents.beta,
+                            fit_dist.contents.sigma,
                             fit_dist.contents.mu_1], *vars), axis=None)
 
     df = pd.DataFrame(data=data).T
@@ -489,7 +482,7 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
 
 def get_stats(args: tp.Tuple) -> tp.List[pd.DataFrame]:
     (timestamp, samples, p) = args
-    print('timestamp: ', datetime.fromtimestamp(timestamp))
+    print('timestamp: ', datetime.utcfromtimestamp(timestamp))
     return [get_stat(timestamp, sample, p) for sample in samples]
 
 
@@ -514,7 +507,7 @@ def get_stats_calls(tlist: tp.List,
     return calls
 
 
-def get_final_df(stats):
+def get_final_df(stats, q):
     stats_0 = [stats[i][0] for i in range(len(stats))]
     stats_1 = [stats[i][1] for i in range(len(stats))]
 
@@ -522,14 +515,15 @@ def get_final_df(stats):
         stats_df = pd.concat(lst)
         stats_df.reset_index(inplace=True)
         stats_df.drop('index', axis=1, inplace=True)
-        stats_df.loc['_type'] = f"price{i}Cumulative"
+        stats_df.loc[:, '_type'] = f"price{i}Cumulative"
+        stats_df.loc[:, 'id'] = q['id']
+        stats_df.loc[:, 'token_name'] = q[f'token{i}_name']
+        stats_df = stats_df.replace(np.inf, 404)
+        stats_df = stats_df.replace(np.nan, 404)
+        stats_df = stats_df.set_index('timestamp')
         return stats_df
 
-    return final_df(stats_0, 0)\
-        .append(
-            final_df(stats_1, 1),
-            ignore_index=True
-            )
+    return final_df(stats_0, 0), final_df(stats_1, 1)
 
 
 def main():
@@ -578,7 +572,7 @@ def main():
                 logging.exception(e)
 
             batch_size = 125
-            ts_list_batches = [ts_list[i:i+batch_size] 
+            ts_list_batches = [ts_list[i:i+batch_size]
                                for i in range(0, len(ts_list), batch_size)]
             for sub_ts_list in ts_list_batches:
                 print(f"Calculations started for new batch of {q['id']}")
@@ -590,42 +584,42 @@ def main():
                             ):
                         get_stats_vals.append(item)
 
-                df = get_final_df(get_stats_vals)
+                df1, df2 = get_final_df(get_stats_vals, q)
 
-                with InfluxDBClient(
-                        url=config['url'],
-                        token=config['token'],
-                        org=config['org']
-                        ) as client:
+                for dfi in [df1, df2]:
+                    with InfluxDBClient(
+                            url=config['url'],
+                            token=config['token'],
+                            org=config['org']
+                            ) as client:
 
-                    print("Start ingestion")
+                        print("Start ingestion")
+                        write_api = client.write_api(
+                            write_options=SYNCHRONOUS,
+                            point_settings=get_point_settings())
 
-                    write_api = client.write_api(
-                        write_options=SYNCHRONOUS,
-                        point_settings=get_point_settings())
-
-                    j = 1
-                    while j == 1:
-                        try:
-                            write_api.write(bucket=config['bucket'],
-                                            record=df,
-                                            data_frame_measurement_name="mem",
-                                            data_frame_tag_columns=[
-                                                'id', 'token_name', '_type'
-                                                ]
-                                            )
-                            j = 0
-                            print("Ingested to influxdb")
-                        except Exception as e:
-                            err_cls = e.__class__
-                            err_msg = str(e)
-                            msg = f'''
-                            Error type = {err_cls}
-                            Error message = {err_msg}
-                            Wait 5 secs
-                            '''
-                            print(msg)
-                            continue
+                        j = 1
+                        while j == 1:
+                            try:
+                                write_api.write(
+                                    bucket=config['bucket'],
+                                    record=dfi,
+                                    data_frame_measurement_name="mem",
+                                    data_frame_tag_columns=[
+                                        'id', 'token_name', '_type']
+                                                )
+                                j = 0
+                                print("Ingested to influxdb")
+                            except Exception as e:
+                                err_cls = e.__class__
+                                err_msg = str(e)
+                                msg = f'''
+                                Error type = {err_cls}
+                                Error message = {err_msg}
+                                Wait 5 secs
+                                '''
+                                print(msg)
+                                continue
 
         print("Metrics are up to date. Wait 5 mins.")
         time.sleep(300)
