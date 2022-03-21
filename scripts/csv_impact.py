@@ -101,6 +101,57 @@ def delta(a: float, b: float, mu: float, sig: float,
     return np.maximum(d_l, d_s)
 
 
+def lmbda_long(a: float, b: float, mu: float, sig: float, g_inv: float,
+               v: float, alpha: float, q0s: np.ndarray) -> np.ndarray:
+    """
+    Computes market impact constant calibration `lmbda` for the long side
+    given uncertainty level `alpha`, payoff cap enforced through `g_inv`,
+    and negative EV for open interest cap boundaries of `q0s`.
+
+    rho_long = (int_0^{g_inv} dy e**y * f_Y_m(y)) \
+        / (alpha - (1+CP) * (1-F_Y_m(g_inv)))
+    lmbda_long = ln(rho_long) / (2 * q0)
+    """
+    alphas = np.array([alpha])
+
+    # calc long lambda*q
+    delta_l = delta_long(a, b, mu, sig, v, alphas)
+    dst_y_m = pystable.create(alpha=a, beta=b, mu=mu*v - 2*delta_l,
+                              sigma=sig*(v**(1/a)), parameterization=1)
+
+    def integrand_m(y): return pystable.pdf(dst_y_m, [y], 1)[0] * np.exp(y)
+    numerator_l, _ = integrate.quad(integrand_m, 0, g_inv)
+    denominator_l = alpha - (1+CP)*(1-pystable.cdf(dst_y_m, [g_inv], 1)[0])
+    rho_l = numerator_l / denominator_l
+
+    return np.log(rho_l) / (2*q0s)
+
+
+def lmbda_short(a: float, b: float, mu: float, sig: float, g_inv: float,
+                v: float, alpha: float, q0s: np.ndarray) -> np.ndarray:
+    """
+    Computes market impact constant calibration `lmbda` for the short side
+    given uncertainty level `alpha`, payoff cap enforced through `g_inv`,
+    and negative EV for open interest cap boundaries of `q0s`.
+
+    rho_short = alpha / (int_{-infty}^{0} dy e**y * f_Y_p(y))
+    lmbda_short = ln(rho_short) / (2 * q0)
+    """
+    alphas = np.array([alpha])
+
+    # calc short lambda*q
+    delta_s = delta_short(a, b, mu, sig, v, alphas)
+    dst_y_p = pystable.create(alpha=a, beta=b, mu=mu*v + 2*delta_s,
+                              sigma=sig*(v**(1/a)), parameterization=1)
+
+    def integrand_p(y): return pystable.pdf(dst_y_p, [y], 1)[0] * np.exp(y)
+    denominator_s, _ = integrate.quad(integrand_p, -np.inf, 0)
+    numerator_s = alpha
+    rho_s = numerator_s / denominator_s
+
+    return np.log(rho_s) / (2*q0s)
+
+
 def lmbda(a: float, b: float, mu: float, sig: float, v: float, g_inv: float,
           alpha: float, q0s: np.ndarray) -> np.ndarray:
     """
@@ -115,30 +166,11 @@ def lmbda(a: float, b: float, mu: float, sig: float, v: float, g_inv: float,
     lmbda_long = ln(rho_long) / (2 * q0)
     lmbda_short = ln(rho_short) / (2 * q0)
     """
-    alphas = np.array([alpha])
-
-    # calc long lambda*q
-    delta_l = delta_long(a, b, mu, sig, v, alphas)
-    dst_y_m = pystable.create(alpha=a, beta=b, mu=mu*v - 2*delta_l,
-                              sigma=sig*(v**(1/a)), parameterization=1)
-
-    def integrand_m(y): return pystable.pdf(dst_y_m, [y], 1)[0] * np.exp(y)
-    numerator_l, _ = integrate.quad(integrand_m, 0, g_inv)
-    denominator_l = alpha - (1+CP)*(1-pystable.cdf(dst_y_m, [g_inv], 1)[0])
-    rho_l = numerator_l / denominator_l
-
-    # calc short lambda*q
-    delta_s = delta_short(a, b, mu, sig, v, alphas)
-    dst_y_p = pystable.create(alpha=a, beta=b, mu=mu*v + 2*delta_s,
-                              sigma=sig*(v**(1/a)), parameterization=1)
-
-    def integrand_p(y): return pystable.pdf(dst_y_p, [y], 1)[0] * np.exp(y)
-    denominator_s, _ = integrate.quad(integrand_p, -np.inf, 0)
-    numerator_s = alpha
-    rho_s = numerator_s / denominator_s
+    lmbda_l = lmbda_long(a, b, mu, sig, g_inv, v, alpha, q0s)
+    lmbda_s = lmbda_short(a, b, mu, sig, g_inv, v, alpha, q0s)
 
     # choose the max bw the long and short calibrations
-    return np.maximum(np.log(rho_l) / (2*q0s), np.log(rho_s) / (2*q0s))
+    return np.maximum(lmbda_l, lmbda_s)
 
 
 def main():
