@@ -109,10 +109,11 @@ def lmbda_long(a: float, b: float, mu: float, sig: float, g_inv: float,
     and negative EV for open interest cap boundaries of `q0s`.
 
     rho_long = (int_0^{g_inv} dy e**y * f_Y_m(y)) \
-        / (alpha - (1+CP) * (1-F_Y_m(g_inv)))
+        / (alpha - (1+cp) * (1-F_Y_m(g_inv)))
     lmbda_long = ln(rho_long) / (2 * q0)
     """
     alphas = np.array([alpha])
+    cp = np.exp(g_inv) - 1
 
     # calc long lambda*q
     delta_l = delta_long(a, b, mu, sig, v, alphas)
@@ -121,7 +122,7 @@ def lmbda_long(a: float, b: float, mu: float, sig: float, g_inv: float,
 
     def integrand_m(y): return pystable.pdf(dst_y_m, [y], 1)[0] * np.exp(y)
     numerator_l, _ = integrate.quad(integrand_m, 0, g_inv)
-    denominator_l = alpha - (1+CP)*(1-pystable.cdf(dst_y_m, [g_inv], 1)[0])
+    denominator_l = alpha - (1+cp)*(1-pystable.cdf(dst_y_m, [g_inv], 1)[0])
     rho_l = numerator_l / denominator_l
 
     return np.log(rho_l) / (2*q0s)
@@ -160,7 +161,7 @@ def lmbda(a: float, b: float, mu: float, sig: float, v: float, g_inv: float,
     EV for open interest cap boundaries of `q0s`.
 
     rho_long = (int_0^{g_inv} dy e**y * f_Y_m(y)) \
-        / (alpha - (1+CP) * (1-F_Y_m(g_inv)))
+        / (alpha - (1+cp) * (1-F_Y_m(g_inv)))
     rho_short = alpha / (int_{-infty}^{0} dy e**y * f_Y_p(y))
 
     lmbda_long = ln(rho_long) / (2 * q0)
