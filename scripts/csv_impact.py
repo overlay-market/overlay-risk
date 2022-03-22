@@ -128,7 +128,7 @@ def lmbda_long(a: float, b: float, mu: float, sig: float, g_inv: float,
     return np.log(rho_l) / (2*q0s)
 
 
-def lmbda_short(a: float, b: float, mu: float, sig: float, g_inv: float,
+def lmbda_short(a: float, b: float, mu: float, sig: float,
                 v: float, alpha: float, q0s: np.ndarray) -> np.ndarray:
     """
     Computes market impact constant calibration `lmbda` for the short side
@@ -168,7 +168,7 @@ def lmbda(a: float, b: float, mu: float, sig: float, v: float, g_inv: float,
     lmbda_short = ln(rho_short) / (2 * q0)
     """
     lmbda_l = lmbda_long(a, b, mu, sig, g_inv, v, alpha, q0s)
-    lmbda_s = lmbda_short(a, b, mu, sig, g_inv, v, alpha, q0s)
+    lmbda_s = lmbda_short(a, b, mu, sig, v, alpha, q0s)
 
     # choose the max bw the long and short calibrations
     return np.maximum(lmbda_l, lmbda_s)

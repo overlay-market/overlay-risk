@@ -152,19 +152,25 @@ class TestCsvImpact(unittest.TestCase):
         df = pd.read_csv(base, sep=',')
         return df.values[0]
 
-    def get_lmbda(self, path) -> np.ndarray:
+    def get_lmbdas(self, path) -> np.ndarray:
         '''
-        Helper to return expected lmbda for stable params
+        Helper to return expected lmbdas for stable params
         and uncertainty files
         '''
         base = os.path.dirname(os.path.abspath(__file__))
         base = os.path.abspath(os.path.join(base, os.pardir))
         base = os.path.join(base, 'helpers')
         base = os.path.join(base, path)
-        base = os.path.join(base, 'get-lmbda.csv')
 
-        df = pd.read_csv(base, sep=',')
-        return df.values[0]
+        # long
+        base_l = os.path.join(base, 'get-lmbda-longs.csv')
+        df_l = pd.read_csv(base_l, sep=',')
+
+        # short
+        base_s = os.path.join(base, 'get-lmbda-shorts.csv')
+        df_s = pd.read_csv(base_s, sep=',')
+
+        return np.maximum(df_l.values[0], df_s.values[0])
 
     def test_gaussian(self):
         expect = pystable.create(alpha=2.0, beta=0.0, mu=0.0, sigma=1.0,
@@ -262,3 +268,40 @@ class TestCsvImpact(unittest.TestCase):
             g_inv=g_inv, v=v, alpha=alpha, q0s=q0s)
 
         np_testing.assert_allclose(expect_lmbda_ls, actual_lmbda_ls)
+
+    def test_lmbda_short(self):
+        path = 'csv-impact'
+        df_params = self.get_stable_params(path)
+        nd_alphas = self.get_alphas(path)
+
+        alpha = nd_alphas[0]
+        v = self.get_v(path)
+        q0s = self.get_q0s(path)
+
+        expect_lmbda_ss = self.get_lmbda_shorts(path)
+        actual_lmbda_ss = cimpact.lmbda_short(
+            a=df_params['alpha'], b=df_params['beta'],
+            mu=df_params['mu'], sig=df_params['sigma'],
+            v=v, alpha=alpha, q0s=q0s)
+
+        np_testing.assert_allclose(expect_lmbda_ss, actual_lmbda_ss)
+
+    def test_lmbda(self):
+        path = 'csv-impact'
+        df_params = self.get_stable_params(path)
+        nd_alphas = self.get_alphas(path)
+
+        alpha = nd_alphas[0]
+        v = self.get_v(path)
+        cp = self.get_cp(path)
+        q0s = self.get_q0s(path)
+
+        g_inv = np.log(1+cp)
+
+        expect_lmbdas = self.get_lmbdas(path)
+        actual_lmbdas = cimpact.lmbda(
+            a=df_params['alpha'], b=df_params['beta'],
+            mu=df_params['mu'], sig=df_params['sigma'],
+            g_inv=g_inv, v=v, alpha=alpha, q0s=q0s)
+
+        np_testing.assert_allclose(expect_lmbdas, actual_lmbdas)
