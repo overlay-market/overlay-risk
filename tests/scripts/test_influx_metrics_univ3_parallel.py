@@ -184,7 +184,7 @@ class TestInfluxMetrics(unittest.TestCase):
         self.assertEqual(expected, actual)
 
         # testing if the return value is string
-        self.assertIsInstance(actual.return_value, str)
+        self.assertIsInstance(actual, str)
 
     # TODO: run for all quotes in `quotes.json`
     @mock.patch('influxdb_client.client.query_api.QueryApi.query_data_frame')
