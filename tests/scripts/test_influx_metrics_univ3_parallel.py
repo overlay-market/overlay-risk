@@ -305,7 +305,7 @@ class TestInfluxMetrics(unittest.TestCase):
         self.assertIsInstance(actual_df, pd.DataFrame)
 
         # twap not contains any null values
-        self.assertEqual(actual_df['twap'].values.any(), False)
+        self.assertEqual(actual_df['twap'].isnull().values.any(), False)
         
 
     # def test_calc_vars(self):
