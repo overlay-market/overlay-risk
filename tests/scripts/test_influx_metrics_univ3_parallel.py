@@ -183,6 +183,9 @@ class TestInfluxMetrics(unittest.TestCase):
 
         self.assertEqual(expected, actual)
 
+        # testing if the return value is string
+        self.assertIsInstance(actual.return_value, str)
+
     # TODO: run for all quotes in `quotes.json`
     @mock.patch('influxdb_client.client.query_api.QueryApi.query_data_frame')
     def test_get_price_cumulatives(self, mock_df):
