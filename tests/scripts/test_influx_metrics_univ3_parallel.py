@@ -301,6 +301,13 @@ class TestInfluxMetrics(unittest.TestCase):
         actual_df = imetrics.get_twap(input_df, quote, params)
         pd_testing.assert_frame_equal(actual_df, expected_df)
 
+        # Is it pd.DataFrame
+        self.assertIsInstance(actual_df, pd.DataFrame)
+
+        # twap not contains any null values
+        self.assertEqual(actual_df['twap'].values.any(), False)
+        
+
     # def test_calc_vars(self):
     #     """
     #     calc_vars(mu, sig_sqrd, t, n, alphas) should calculate bracketed term
