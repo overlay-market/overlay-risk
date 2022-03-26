@@ -137,7 +137,6 @@ class TestInfluxMetrics(unittest.TestCase):
         self.assertIsInstance(actual['tolerance'], int)
         self.assertIsInstance(actual['alpha'], tp.List)
         self.assertIsInstance(actual['n'], tp.List)
-        self.assertIsInstance(actual['data_start'], int)
 
         for i in actual['alpha']:
             self.assertIsInstance(i, float)
