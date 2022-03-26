@@ -116,8 +116,14 @@ class TestInfluxMetrics(unittest.TestCase):
         Assert `params` dict contains expected keys used in statistical
         estimates
         """
-        expected_keys = {"points", "window", "period",
-                         "tolerance", "alpha", "n", "data_start"}
+        expected_keys = {
+            "points", 
+            "window", 
+            "period",
+            "tolerance", 
+            "alpha", 
+            "n", 
+            }
 
         actual = imetrics.get_params()
         actual_keys = set(actual.keys())
