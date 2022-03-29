@@ -163,10 +163,10 @@ def find_start(api, quote, config) -> int:
         return math.floor(datetime.timestamp(
             r.iloc[0]['_time']))
     else:
-        # return quote['time_deployed'] + 1200
-        return math.floor(
-            int(datetime.timestamp(datetime.now() - timedelta(days=60)))
-            )
+        return quote['time_deployed'] + 1200
+#        return math.floor(
+#            int(datetime.timestamp(datetime.now() - timedelta(days=60)))
+#            )
 
 
 def read_cumulatives(args: tp.Tuple) -> tp.Tuple:
