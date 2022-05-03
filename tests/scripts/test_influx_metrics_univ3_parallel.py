@@ -4,7 +4,6 @@ import typing as tp
 import os
 import unittest
 from unittest import mock
-import datetime
 from scripts import influx_metrics_univ3_parallel as imetrics
 
 
