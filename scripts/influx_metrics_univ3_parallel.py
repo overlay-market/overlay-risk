@@ -163,7 +163,7 @@ def find_start(api, quote, config, params) -> int:
             print(msg)
             time.sleep(wait)
             retries += 1
-¯
+
     if (len(r.index) > 0):
         return math.floor(datetime.timestamp(
             r.iloc[0]['_time']))
