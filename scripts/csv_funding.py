@@ -7,18 +7,16 @@ from scipy import integrate
 
 FILENAME = "data-1625069716_weth-usdc-twap"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-T = 40  # 10m candle size on datafile
-TC = 40  # 10 m compounding period
-CP = 4  # 5x payoff cap
+T = 600  # 10m candle size on datafile (in blocks)
+CP = 10  # 10x payoff cap
 
 # uncertainties
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
-# periods into the future at which we want 1/compoundingFactor to start
-# exceeding VaR from priceFrame: 1/(1-2k)**n >= VaR[(P(n)/P(0) - 1)]
-NS = 480 * np.arange(1, 85)  # 2h, 4h, 6h, ...., 7d
+# time periods (in seconds) into the future at which we want VaR = 0
+NS = 86400 * np.arange(1, 61)  # 1d, 2d, 3d, ...., 60d
 
-# For plotting nvars
-TS = 240 * np.arange(1, 720)  # 1h, 2h, 3h, ...., 30d
+# For plotting normalized var, ev, es
+TS = 3600 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
 ALPHA = 0.05
 
 
@@ -28,13 +26,20 @@ def gaussian():
 
 
 def rescale(dist: pystable.STABLE_DIST, t: float) -> pystable.STABLE_DIST:
+    """
+    Rescales stable distribution using scaling property.
+    For iid X_i ~ S(a, b, mu_i, sigma_i)
+
+    sum_{i=1}^{t} X_i ~ S(a, b, mu, sigma)
+
+    where
+      mu = sum_{i=1}^{t} mu_i
+      |sigma| = ( sum_{i=1}^{t} |sigma|**(a) ) ** (1/a)
+
+    and `t` input for function is number of iids.
+    """
     mu = dist.contents.mu_1 * t
-    if t > 1:
-        sigma = dist.contents.sigma * \
-            (t/dist.contents.alpha)**(1/dist.contents.alpha)
-    else:
-        sigma = dist.contents.sigma * \
-            ((1/t)/dist.contents.alpha)**(-1/dist.contents.alpha)
+    sigma = dist.contents.sigma * t**(1/dist.contents.alpha)
 
     return pystable.create(
         alpha=dist.contents.alpha,
@@ -46,87 +51,144 @@ def rescale(dist: pystable.STABLE_DIST, t: float) -> pystable.STABLE_DIST:
 
 
 def k(a: float, b: float, mu: float, sig: float,
-      n: float, v: float, g_inv: float, alphas: np.ndarray) -> np.ndarray:
+      n: float, alphas: np.ndarray) -> np.ndarray:
+    """
+    Computed funding constant calibration `k` given uncertainty
+    levels `alphas` and anchor time `n`.
+
+    k_long = (1/(2 * n)) * F^{-1}_{X_t}(1-alpha)
+    k_short = (1/(2 * n)) * ln[ 2 - F^{-1}_{X_t}(alpha) ]
+    """
     dst_y = pystable.create(alpha=a, beta=b, mu=mu*n,
-                            sigma=sig*((n/a)**(1/a)), parameterization=1)
+                            sigma=sig*(n**(1/a)), parameterization=1)
 
-    # calc quantile accounting for cap
-    cdf_y_ginv = pystable.cdf(dst_y, [g_inv], 1)[0]
-    qs = pystable.q(dst_y, list(cdf_y_ginv-alphas), len(alphas))
-    qs = np.array(qs)
+    # k long needed for VaR = 0 at n in future
+    # NOTE: divide by 1/2T_alpha at return
+    qs_long = pystable.q(dst_y, list(1-alphas), len(alphas))
+    qs_long = np.array(qs_long)
+    k_long = qs_long
 
-    # factor at "infty"
-    factor_long = np.exp(qs)
-    # short has less risk. just needs to have a funding rate to decay
-    factor_short = 1 + np.zeros(len(alphas))
+    # k short needed for VaR = 0 at n in future
+    # NOTE: divide by 1/2T_alpha at return
+    qs_short = pystable.q(dst_y, list(alphas), len(alphas))
+    qs_short = np.array(qs_short)
+    k_short = np.log(2 - np.exp(qs_short))
 
     # Compare long vs short and return max of the two
-    factor = np.maximum(factor_long, factor_short)
+    k_max = np.maximum(k_long, k_short)
 
-    # want (1-2k)**(n/v) = 1/factor to set k for v timeframe
-    # n/v is # of compound periods that pass
-    return (1 - (1/factor)**(v/n))/2.0
+    # calculate t_alpha: i.e. get n in seconds in the future
+    # divide by 1/2T_alpha to get k value then return
+    t_alpha = n
+    k_max = k_max / (2 * t_alpha)
+    return k_max
 
 
 def nvalue_at_risk(a: float, b: float, mu: float, sigma: float,
-                   k_n: float, v: float, g_inv: float, alpha: float,
-                   t: float) -> (float, float):
+                   k_n: float, alpha: float, t: float) -> (float, float):
+    """
+    Computed value at risk to the protocol at time `t` in the future
+    for an initial open interest imbalance to one side, given `k=k_n`
+    calibration for the market's funding constant.
+
+    if Q_long = Q and Q_short = 0:
+        VaR = Q * [ e**(F^{-1}_{X_t}(1-alpha) - 2k*t) - 1 ]
+
+    else if Q_short = Q and Q_long = 0:
+        VaR = Q * [ e**(-2k*t) * ( 2 - e**(F^{-1}_{X_t}(alpha)) ) - 1 ]
+    """
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
-                        sigma=sigma*(t/a)**(1/a), parameterization=1)
+                        sigma=sigma * (t**(1/a)), parameterization=1)
 
     # var long
-    cdf_x_ginv = pystable.cdf(x, [g_inv], 1)[0]
-    q_long = pystable.q(x, [cdf_x_ginv - alpha], 1)[0]
-    nvar_long = ((1-2*k_n)**(np.floor(t/v))) * (np.exp(q_long) - 1)
+    q_long = pystable.q(x, [1 - alpha], 1)[0]
+    nvar_long = np.exp(q_long - 2 * k_n * t) - 1
 
     # var short
     q_short = pystable.q(x, [alpha], 1)[0]
-    nvar_short = ((1-2*k_n)**(np.floor(t/v))) * (1 - np.exp(q_short))
+    nvar_short = np.exp(- 2 * k_n * t) * (2 - np.exp(q_short)) - 1
 
     return nvar_long, nvar_short
 
 
 def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
-                        k_n: float, v: float, g_inv: float, alpha: float,
+                        k_n: float, g_inv: float, cp: float, alpha: float,
                         t: float) -> (float, float, float, float):
+    """
+    Computed expected shortfall (conditional & unconditional) at time `t`
+    in the future for an initial open interest imbalance to one side, given
+    `k=k_n` calibration for the market's funding constant and payoff cap `cp`.
+
+    if Q_long = Q and Q_short = 0:
+        ES = Q * { (e**(-2k*t) / alpha) * [
+            int_{F^{-1}_{X_t}(1-alpha)}^{g^{-1}(C_p)} dx e**x * f_{X_t}
+            + (1 + C_p) * (1 - F_{X_t}(C_p))
+        ] - 1 }
+
+    else if Q_short = Q and Q_long = 0:
+        ES = Q * { (e**(-2k*t) / alpha) * [
+            2 - (1/alpha) * int_{-infty}^{F^{-1}_{X_t}(alpha)} dx e**x *f_{X_t}
+        ] - 1}
+    """
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
-                        sigma=sigma*(t/a)**(1/a), parameterization=1)
-    oi_imb = ((1-2*k_n)**(np.floor(t/v)))
+                        sigma=sigma*(t**(1/a)), parameterization=1)
 
     def integrand(y): return pystable.pdf(x, [y], 1)[0] * np.exp(y)
 
     # expected shortfall long
     cdf_x_ginv = pystable.cdf(x, [g_inv], 1)[0]
-    q_min_long = pystable.q(x, [cdf_x_ginv - alpha], 1)[0]
-    integral_long, _ = integrate.quad(integrand, q_min_long, g_inv)
-    nes_long = oi_imb * (integral_long/alpha - 1)
+    q_min_long = pystable.q(x, [1 - alpha], 1)[0]
+
+    integral_long = 0
+    if g_inv > q_min_long:
+        integral_long, _ = integrate.quad(integrand, q_min_long, g_inv)
+
+    nes_long = (
+        np.exp(-2 * k_n * t) / alpha) * \
+        (integral_long + (1+cp) * (1 - cdf_x_ginv)) - 1
 
     # expected shortfall short
     q_max_short = pystable.q(x, [alpha], 1)[0]
     integral_short, _ = integrate.quad(integrand, -np.inf, q_max_short)
-    nes_short = oi_imb * (1 - integral_short/alpha)
+    nes_short = np.exp(-2 * k_n * t) * (2 - integral_short / alpha) - 1
 
     return nes_long, nes_short, nes_long * alpha, nes_short * alpha
 
 
 def nexpected_value(a: float, b: float, mu: float, sigma: float,
-                    k_n: float, v: float, g_inv_long: float, cp: float,
+                    k_n: float, g_inv_long: float, cp: float,
                     g_inv_short: float, t: float) -> (float, float):
+    """
+    Computed expected value at time `t` in the future for an initial
+    open interest imbalance to one side, given `k=k_n` calibration for
+    the market's funding constant and payoff cap `cp`.
+
+    if Q_long = Q and Q_short = 0:
+        EV = Q * { e**(-2k*t) * [
+            int_{-infty}^{g^{-1}(C_P)} dx e**x * f_{X_t}
+            + (1+C_P) * (1 - F_{X_t}(g^{-1}(C_P)))
+        ] - 1 }
+
+    else if Q_short = Q and Q_long = 0:
+        EV = Q * { e**(-2k*t) * [
+            2 * F_{X_t}(g^{-1}(1))
+            - int_{-infty}^{g^{-1}(1)} dx e**x * f_{X_t}
+        ] - 1}
+    """
     x = pystable.create(alpha=a, beta=b, mu=mu*t,
-                        sigma=sigma*(t/a)**(1/a), parameterization=1)
-    oi_imb = ((1-2*k_n)**(np.floor(t/v)))
+                        sigma=sigma*(t**(1/a)), parameterization=1)
 
     def integrand(y): return pystable.pdf(x, [y], 1)[0] * np.exp(y)
 
     # expected value long
     cdf_x_ginv = pystable.cdf(x, [g_inv_long], 1)[0]
     integral_long, _ = integrate.quad(integrand, -np.inf, g_inv_long)
-    nev_long = oi_imb * (integral_long - cdf_x_ginv + cp*(1-cdf_x_ginv))
+    nev_long = np.exp(-2*k_n*t) * (integral_long + (1+cp)*(1-cdf_x_ginv)) - 1
 
     # expected value short
     cdf_x_ginv_one = pystable.cdf(x, [g_inv_short], 1)[0]
     integral_short, _ = integrate.quad(integrand, -np.inf, g_inv_short)
-    nev_short = oi_imb * (2*cdf_x_ginv_one - 1 - integral_short)
+    nev_short = np.exp(-2*k_n*t) * (2 * cdf_x_ginv_one - integral_short) - 1
 
     return nev_long, nev_short
 
@@ -150,6 +212,7 @@ def main():
         '''
     )
 
+    # rescale to per second distribution
     dst = rescale(dst, 1/T)
     print(
         f'''
@@ -164,9 +227,9 @@ def main():
     g_inv_one = np.log(2)
     ks = []
     for n in NS:
-        fundings = k(dst.contents.alpha, dst.contents.beta,
-                     dst.contents.mu_1, dst.contents.sigma,
-                     n, TC, g_inv, ALPHAS)
+        fundings = k(a=dst.contents.alpha, b=dst.contents.beta,
+                     mu=dst.contents.mu_1, sig=dst.contents.sigma,
+                     n=n, alphas=ALPHAS)
         ks.append(fundings)
 
     df_ks = pd.DataFrame(
@@ -200,7 +263,7 @@ def main():
             nvar_long, nvar_short = nvalue_at_risk(
                 a=dst.contents.alpha, b=dst.contents.beta,
                 mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                k_n=k_n, v=TC, g_inv=g_inv, alpha=ALPHA, t=t)
+                k_n=k_n, alpha=ALPHA, t=t)
             nvar_t_long.append(nvar_long)
             nvar_t_short.append(nvar_short)
 
@@ -209,7 +272,7 @@ def main():
                 nexpected_shortfall(
                     a=dst.contents.alpha, b=dst.contents.beta,
                     mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                    k_n=k_n, v=TC, g_inv=g_inv, alpha=ALPHA, t=t)
+                    k_n=k_n, g_inv=g_inv, cp=CP, alpha=ALPHA, t=t)
             ness_t_long.append(nes_long)
             ness_t_short.append(nes_short)
 
@@ -218,7 +281,7 @@ def main():
                 nexpected_value(
                     a=dst.contents.alpha, b=dst.contents.beta,
                     mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                    k_n=k_n, v=TC, g_inv_long=g_inv, cp=CP,
+                    k_n=k_n, g_inv_long=g_inv, cp=CP,
                     g_inv_short=g_inv_one, t=t)
             nevs_t_long.append(nev_long)
             nevs_t_short.append(nev_short)

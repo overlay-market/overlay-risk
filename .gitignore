@@ -12,4 +12,5 @@ logging
 my_files
 .vscode
 .ipynb_checkpoints
+.DS_Store
 .env

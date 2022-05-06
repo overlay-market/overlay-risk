@@ -36,7 +36,7 @@ def get_config() -> tp.Dict:
     return {
         "token": os.getenv('INFLUXDB_TOKEN'),
         "org": os.getenv('INFLUXDB_ORG'),
-        "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_parallel_check"),
+        "bucket": os.getenv('INFLUXDB_BUCKET', "ovl_metrics_univ3"),
         "source": os.getenv('INFLUXDB_SOURCE', "ovl_univ3_1h"),
         "url": os.getenv("INFLUXDB_URL"),
     }
@@ -83,8 +83,6 @@ def get_params() -> tp.Dict:
         alpha   List[float]:    alpha uncertainty in VaR calc
         n:      List[int]:      number of periods into the future over which
                                 VaR is calculated
-        data_start [int]:       start calculating metrics from these many days
-                                ago
     '''
     return {
         "points": 90,
@@ -93,7 +91,6 @@ def get_params() -> tp.Dict:
         "tolerance": 10,
         "alpha": [0.05, 0.01, 0.001, 0.0001],
         "n": [144, 1008, 2016, 4320],
-        "data_start": 90
     }
 
 
@@ -106,7 +103,7 @@ def get_quote_path() -> str:
 
     '''
     base = os.path.dirname(os.path.abspath(__file__))
-    qp = 'constants/univ3_quotes_simple.json'
+    qp = 'constants/univ3_quotes.json'
     return os.path.join(base, qp)
 
 
@@ -171,7 +168,7 @@ def find_start(api, quote, config, params) -> int:
         return math.floor(datetime.timestamp(
             r.iloc[0]['_time']))
     else:
-        return quote['time_deployed'] + (91*24*60*60)
+        return quote['time_deployed'] + ((params['points']+1)*24*60*60)
 
 
 def list_of_timestamps(api, quote, config, start_ts) -> tp.List:
