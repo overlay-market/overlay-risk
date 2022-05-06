@@ -482,7 +482,7 @@ def get_stat(timestamp: int, sample: np.ndarray, p: tp.Dict
 
 def get_stats(args: tp.Tuple) -> tp.List[pd.DataFrame]:
     (timestamp, samples, p) = args
-    print('timestamp: ', datetime.utcfromtimestamp(timestamp))
+    print('timestamp: ', datetime.utcfromtimestamp(timestamp), flush=True)
     return [get_stat(timestamp, sample, p) for sample in samples]
 
 
