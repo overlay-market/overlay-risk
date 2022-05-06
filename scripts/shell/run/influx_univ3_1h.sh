@@ -1,4 +1,7 @@
 #!/bin/sh
-. ~/env_variables.sh
-brownie run influx_univ3_1h --network alchemynode &
-echo $! >../PIDs/influx_univ3_1h.pid
+# make this directory the working directory
+cd "${0%/*}"
+# load env variable
+export $(cat ../../../.env | xargs)
+# run brownie script
+poetry run brownie run influx_univ3_1h --network alchemynode
