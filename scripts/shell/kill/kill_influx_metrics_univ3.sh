@@ -1,4 +1,2 @@
 #!/bin/sh
-pg_id=`ps -o pgid= -C 'python ../../influx_metrics_univ3.py'`
-echo $pg_id
-kill -- -"$pg_id"
+ps ax | grep influx_metrics_univ3_parallel.py | grep -v grep | awk '{print $1}' | xargs kill -9
