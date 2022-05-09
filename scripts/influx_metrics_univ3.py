@@ -171,14 +171,13 @@ def find_start(api, quote, config, params) -> int:
         return math.floor(datetime.timestamp(
             r.iloc[0]['_time']))
     else:
-    #     return math.floor(
-    #             int(
-    #                 datetime.timestamp(
-    #                     datetime.now() - timedelta(days=params['data_start'])
-    #                     )
-    #                 )
-    #             )
-        return 1630800000
+        return math.floor(
+                int(
+                    datetime.timestamp(
+                        datetime.now() - timedelta(days=params['data_start'])
+                        )
+                    )
+                )
 
 
 def list_of_timestamps(api, quote, config, start_ts) -> tp.List:
