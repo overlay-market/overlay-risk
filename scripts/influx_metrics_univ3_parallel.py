@@ -584,6 +584,8 @@ def main():
                 df1, df2 = get_final_df(get_stats_vals, q)
 
                 for dfi in [df1, df2]:
+                    cols = dfi.columns.drop(['_type', 'id', 'token_name'])
+                    dfi[cols] = dfi[cols].apply(pd.to_numeric, errors='coerce')
                     with InfluxDBClient(
                             url=config['url'],
                             token=config['token'],
