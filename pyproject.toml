@@ -15,6 +15,8 @@ schedule = "^1.1.0"
 pystable = "^0.2.3"
 eth-brownie = { git = "https://github.com/deepsp94/brownie.git"}
 scipy = "^1.8.0"
+jupyter = "^1.0.0"
+matplotlib = "^3.5.2"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.2"
