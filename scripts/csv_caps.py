@@ -5,7 +5,7 @@ import numpy as np
 from scipy import integrate
 
 
-FILENAME = "data-1625069716_weth-usdc-twap"
+FILENAME = "ETHUSD-600-20210401-20210630"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
 
 KS_FILEPATH = f"csv/metrics/{FILENAME}-ks.csv"

@@ -5,7 +5,7 @@ import numpy as np
 from scipy import integrate
 
 
-FILENAME = "data-1625069716_weth-usdc-twap"
+FILENAME = "ETHUSD-600-20210401-20210630"
 FILEPATH = f"csv/{FILENAME}.csv"  # datafile
 T = 600  # 10m candle size on datafile
 V = 600  # 10m shorter TWAP
