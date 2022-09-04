@@ -110,7 +110,7 @@ def main():
         '''
     )
 
-    # calc deltas
+    # calc mu_maxs
     mus = mu_max(dst.contents.alpha, dst.contents.beta,
                  dst.contents.mu_1, dst.contents.sigma, V, ALPHAS)
     df_mus = pd.DataFrame(data=[ALPHAS, mus]).T
