@@ -160,7 +160,7 @@ def main():
                           columns=[f'alpha={a}' for a in ALPHAS],
                           index=[f't={t}' for t in TS])
     print('MMs:', df_mms)
-    df_mms.to_csv(f"csv/metrics/{FILENAME}-mms.csv", index=False)
+    df_mms.to_csv(f"csv/metrics/{FILENAME}-mms.csv")
 
     # Calibrate betas
     betas = []
@@ -180,7 +180,7 @@ def main():
                     )
     # Beta is NaN when MM > 1. Drop those rows.
     df_betas.dropna(inplace=True)
-    df_betas.to_csv(f"csv/metrics/{FILENAME}-betas.csv", index=False)
+    df_betas.to_csv(f"csv/metrics/{FILENAME}-betas.csv")
 
 
 if __name__ == '__main__':
