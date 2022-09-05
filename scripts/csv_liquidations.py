@@ -1,6 +1,7 @@
 import pystable
 import pandas as pd
 import numpy as np
+from scipy import integrate
 
 
 FILENAME = "ETHUSD-600-20210401-20210630"
@@ -10,6 +11,7 @@ TS = 3600 * np.arange(1, 721)  # 1h, 2h, 3h, ...., 30d
 
 # uncertainties
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
+ALPHA = 0.05
 
 
 def gaussian():
@@ -86,6 +88,37 @@ def mm(a: float, b: float, mu: float, sig: float,
     return np.maximum(mm_l, mm_s)
 
 
+def rho(a: float, b: float, mu: float, sig: float, g_inv_short: float,
+        t: float, alpha: float, is_long: bool, mm: float) -> np.ndarray:
+
+    dst_x = pystable.create(alpha=a, beta=b, mu=mu*t,
+                            sigma=sig*(t**(1/a)), parameterization=1)
+
+    def integrand(y): return pystable.pdf(dst_x, [y], 1)[0] * np.exp(y)
+    if is_long:
+        return (1/alpha)*integrate.quad(
+                            integrand, -np.inf, -np.log(1+mm)
+                            )[0]
+    else:
+        return (1/alpha)*integrate.quad(
+                            integrand, -np.log(1-mm), g_inv_short
+                            )[0]
+
+
+def beta(a: float, b: float, mu: float, sig: float,
+         t: float, alpha: float, mm: float) -> np.ndarray:
+    """
+    Computes liquidate burn constant
+    """
+    rho_l = rho(a, b, mu, sig, np.log(2), t, alpha, True, mm)
+    beta_l = alpha * ((1-rho_l)*(1+(1/mm)) - 1)
+
+    rho_s = rho(a, b, mu, sig, np.log(2), t, alpha, False, mm)
+    beta_s = alpha * ((1-rho_s)*(1-(1/mm)) - 1)
+
+    return np.maximum(beta_l, beta_s)
+
+
 def main():
     """
     Fits input csv timeseries data with pystable and generates output
@@ -114,6 +147,7 @@ def main():
         '''
     )
 
+    # Calibrate maintenance margin constants
     mms_l = []
     for t in TS:
         # calc MMs
@@ -127,6 +161,26 @@ def main():
                           index=[f't={t}' for t in TS])
     print('MMs:', df_mms)
     df_mms.to_csv(f"csv/metrics/{FILENAME}-mms.csv", index=False)
+
+    # Calibrate betas
+    betas = []
+    for i in range(len(df_mms)):
+        print(f'{np.round((i/len(df_mms)) * 100, 2)}% complete', end="\r")
+        betas.append(
+            beta(dst.contents.alpha, dst.contents.beta,
+                 dst.contents.mu_1, dst.contents.sigma,
+                 int(df_mms[f'alpha={ALPHA}'].index[i][2:]),
+                 ALPHA,
+                 df_mms[f'alpha={ALPHA}'][i])
+        )
+    df_betas = pd.DataFrame(
+                    data=betas,
+                    columns=[f'alpha={ALPHA}'],
+                    index=[f't={t}' for t in TS]
+                    )
+    # Beta is NaN when MM > 1. Drop those rows.
+    df_betas.dropna(inplace=True)
+    df_betas.to_csv(f"csv/metrics/{FILENAME}-betas.csv", index=False)
 
 
 if __name__ == '__main__':
