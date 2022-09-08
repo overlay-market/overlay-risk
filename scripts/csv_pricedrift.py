@@ -9,7 +9,7 @@ T = 600  # 10m candle size on datafile
 V = 3600  # 60m longer TWAP
 
 # uncertainties
-ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
+ALPHAS = np.array([0.001, 0.01, 0.025, 0.05, 0.075, 0.1])
 
 
 def gaussian():
