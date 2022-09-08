@@ -13,7 +13,7 @@ influxdb-client = {extras = ["ciso"], version = "^1.16.0"}
 click = "^8.0.1"
 schedule = "^1.1.0"
 pystable = "^0.2.3"
-eth-brownie = { git = "https://github.com/deepsp94/brownie.git"}
+eth-brownie = "^1.19.1"
 scipy = "1.8.1"
 jupyter = "^1.0.0"
 matplotlib = "^3.5.2"
