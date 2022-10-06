@@ -1,4 +1,5 @@
 import pandas as pd
+import pystable
 import os
 import numpy as np
 import numpy.testing as np_testing
@@ -20,6 +21,41 @@ class TestCsvPricedrift(unittest.TestCase):
 
         df = pd.read_csv(base, sep=',')
         return df
+
+    def test_gaussian(self):
+        expect = pystable.create(alpha=2.0, beta=0.0, mu=0.0, sigma=1.0,
+                                 parameterization=1)
+        actual = cpdrift.gaussian()
+        self.assertIsInstance(actual, type(expect))
+
+        expect_params = (expect.contents.alpha, expect.contents.beta,
+                         expect.contents.mu_1, expect.contents.sigma)
+        actual_params = (actual.contents.alpha, actual.contents.beta,
+                         actual.contents.mu_1, actual.contents.sigma)
+        self.assertEqual(expect_params, actual_params)
+
+    def test_rescale(self):
+        df_params = self.get_csv('get-stable-params.csv')
+        v = self.get_csv('get-vs.csv').iloc[0, 0]
+
+        dist = pystable.create(
+            alpha=df_params['alpha'][0], beta=df_params['beta'][0],
+            mu=df_params['mu'][0], sigma=df_params['sigma'][0],
+            parameterization=1)
+
+        expect = pystable.create(
+            alpha=df_params['alpha'][0], beta=df_params['beta'][0],
+            mu=df_params['mu'][0]*v,
+            sigma=df_params['sigma'][0]*v**(1/df_params['alpha'][0]),
+            parameterization=1)
+        actual = cpdrift.rescale(dist, v)
+        self.assertIsInstance(actual, type(expect))
+
+        expect_params = (expect.contents.alpha, expect.contents.beta,
+                         expect.contents.mu_1, expect.contents.sigma)
+        actual_params = (actual.contents.alpha, actual.contents.beta,
+                         actual.contents.mu_1, actual.contents.sigma)
+        self.assertEqual(expect_params, actual_params)
 
     def test_mu_max_long(self):
         df_params = self.get_csv('get-stable-params.csv')
