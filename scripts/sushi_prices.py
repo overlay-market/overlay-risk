@@ -1,8 +1,8 @@
 from brownie import Contract
-from itertools import chain as ichain
 import pandas as pd
 import numpy as np
-import time
+from brownie import web3
+from concurrent.futures import ThreadPoolExecutor
 
 
 def split_args(args):
@@ -21,10 +21,28 @@ def load_contract(address):
 
 
 def get_block_ranges(lb, ub):
-    rng = list(range(lb, ub, 100_000))
+    step = 100_000
+    rng = list(range(lb, ub, step))
     if rng[-1] < ub:
         rng.append(ub)
     return rng
+
+
+def get_args_df(event_list):
+    args = []
+    for i in range(len(event_list)):
+        args.append(event_list[i].args)
+    return pd.DataFrame(args)
+
+
+def get_event_df(event_list, cols):
+    args_df = get_args_df(event_list)
+    event_df = pd.DataFrame(event_list, columns=cols)
+    return event_df.join(args_df)
+
+
+def get_block_timestamp(b):
+    return web3.eth.get_block(b).timestamp
 
 
 def main(args):
@@ -46,3 +64,17 @@ def main(args):
                 from_block=rng[i]+1,
                 to_block=rng[i+1])
         )
+
+    sync_l = []
+    for i in range(len(pool_events_l)):
+        sync_l.append(get_event_df(pool_events_l[i].Sync,
+                                   ['logIndex',
+                                    'transactionHash', 'blockNumber']))
+    sync_df = pd.concat(sync_l)
+    time_l = list(sync_df['blockNumber'])
+    time_f = []
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for item in executor.map(get_block_timestamp, time_l):
+            print(item)
+            time_f.append(item)
+
