@@ -5,6 +5,7 @@ __pycache__
 .tox
 build/
 reports/
+csv_old/
 csv/
 csv_old/
 poetry.lock
