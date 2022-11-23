@@ -5,6 +5,7 @@ __pycache__
 .tox
 build/
 reports/
+csv_old/
 csv/
 poetry.lock
 logging
@@ -14,3 +15,4 @@ my_files
 .ipynb_checkpoints
 .DS_Store
 .env
+notes.txt
