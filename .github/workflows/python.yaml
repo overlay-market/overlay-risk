@@ -19,13 +19,18 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
         python-version: [3.9]
 
     steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.x
+
       - uses: actions/checkout@v2
 
       - name: Cache Compiler Installations
@@ -36,11 +41,8 @@ jobs:
             ~/.vvm
           key: compiler-cache
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v1
-
       - name: Install Ganache
-        run: npm install -g ganache-cli@6.10.2
+        run: npm install -g ganache-cli@6.12.2
 
       - name: Setup Python
         uses: actions/setup-python@v2
