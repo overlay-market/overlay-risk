@@ -26,6 +26,11 @@ jobs:
         python-version: [3.9]
 
     steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.x
+
       - uses: actions/checkout@v2
 
       - name: Cache Compiler Installations
@@ -35,11 +40,6 @@ jobs:
             ~/.solcx
             ~/.vvm
           key: compiler-cache
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v1
-        with:
-          node-version: 16.x
 
       - name: Install Ganache
         run: npm install -g ganache-cli@6.12.2
