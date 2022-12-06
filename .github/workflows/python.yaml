@@ -42,7 +42,7 @@ jobs:
           node-version: 16.x
 
       - name: Install Ganache
-        run: npm install -g ganache-cli@6.10.2
+        run: npm install -g ganache-cli@6.12.2
 
       - name: Setup Python
         uses: actions/setup-python@v2
