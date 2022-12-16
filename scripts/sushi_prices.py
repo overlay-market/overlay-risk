@@ -39,49 +39,6 @@ def get_event_df(event_list, cols):
     return event_df.join(args_df)
 
 
-def dynamic_window(
-        df: pd.DataFrame,
-        max_rows: int,
-        window: int
-        ) -> pd.DataFrame:
-    '''
-    Computes the window size in terms of rows such that there is as much data
-    as there are seconds specified in the `window` variable.
-    '''
-
-    for i in range(1, int(max_rows+1)):
-        df.loc[:, 'lag_time'] = df.loc[:, '_time'].shift(i)
-        df.loc[:, i] =\
-            (pd.to_datetime(df.loc[:, '_time'])
-             - pd.to_datetime(df.loc[:, 'lag_time']))\
-            .dt.total_seconds()
-        df.loc[:, i] = abs(df.loc[:, i] - (window * 60))
-
-        df.drop(['lag_time'], axis=1, inplace=True)
-
-    min_df = df[[i for i in range(1, int(max_rows+1))]]\
-        .idxmin(axis="columns")
-
-    df.dropna(inplace=True)
-    df = df.join(pd.DataFrame(min_df, columns=['dynamic_window']))
-    df['dynamic_window'] = df['dynamic_window'].astype(int)
-    return df
-
-
-def delta_window(
-        row: pd.Series,
-        values: pd.Series,
-        lookback: pd.Series
-        ) -> pd.Series:
-    '''
-    Computes difference based on window sizes specified in `lookback`
-    '''
-
-    loc = values.index.get_loc(row.name)
-    lb = lookback.loc[row.name]
-    return values.iloc[loc] - values.iloc[loc-lb]
-
-
 def main(args):
     # Get args
     pool_addr, lb, ub = split_args(args)
