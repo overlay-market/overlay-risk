@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 
 
+POOL_NAME = 'ETH-USDC'
+
+
 def split_args(args):
     l_arg = args.split(',')
     pool_addr = l_arg[0].strip()
@@ -88,7 +91,7 @@ def main(args):
     df = df.merge(last_swap, on=['blockNumber', 'logIndex'], how='inner')
 
     # Save data
-    df.to_csv('csv/NFTX-WETH-SPOT-20210115-20210630.csv')
+    df.to_csv(f'csv/{POOL_NAME}-SPOT-20210115-20210630.csv')
 
     # Get 10m TWAP
     close_df = df[['close', 'timestamp']]
@@ -97,4 +100,4 @@ def main(args):
     close_df.reset_index(inplace=True)
     close_df.columns = ['timestamp', 'twap']
     df = df.merge(close_df, on='timestamp', how='inner')
-    df.to_csv('csv/NFTX-WETH-10mTWAP-20210115-20210630.csv')
+    df.to_csv(f'csv/{POOL_NAME}-10mTWAP-20210115-20210630.csv')
