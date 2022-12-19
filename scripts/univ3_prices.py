@@ -1,6 +1,7 @@
 from brownie import Contract
 import pandas as pd
 import numpy as np
+import json
 
 
 POOL_NAME = 'ETH-USDC'
@@ -12,6 +13,11 @@ def split_args(args):
     lb = int(l_arg[1].strip())
     ub = int(l_arg[2].strip())
     return pool_addr, lb, ub
+
+
+def json_load(name):
+    f = open(f'scripts/constants/{name}.json')
+    return json.load(f)
 
 
 def load_contract(address):
@@ -47,7 +53,8 @@ def main(args):
     pool_addr, lb, ub = split_args(args)
 
     # Load contracts and token decimals info
-    pool = load_contract(pool_addr)
+    abi = json_load('univ3.abi')
+    pool = Contract.from_abi('pool', pool_addr, abi)
     decimals_0 = load_contract(pool.token0()).decimals()
     decimals_1 = load_contract(pool.token1()).decimals()
 
@@ -112,5 +119,4 @@ def main(args):
     close_df = close_df[close_df.flag == 1]
     close_df.drop(['flag'], axis=1, inplace=True)
     close_df.columns = ['timestamp', 'twap']
-    df = df.merge(close_df, on='timestamp', how='inner')
-    df.to_csv(f'csv/{POOL_NAME}-10mTWAP-check.csv')
+    close_df.to_csv(f'csv/{POOL_NAME}-10mTWAP-check.csv')
