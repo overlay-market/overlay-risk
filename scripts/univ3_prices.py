@@ -95,13 +95,22 @@ def main(args):
     df = df.merge(last_swap, on=['blockNumber', 'logIndex'], how='inner')
 
     # Save data
+    df = df[['close', 'timestamp']]
     df.to_csv(f'csv/{POOL_NAME}-SPOT-check.csv')
 
-    # Get 10m TWAP
-    close_df = df[['close', 'timestamp']]
-    close_df.set_index('timestamp', inplace=True)
+    # Get 10m TWAP at 10m periodicity
+    freq_df = df.set_index('timestamp')
+    freq_df = freq_df.asfreq('10min').reset_index()
+    freq_df['flag'] = 1
+    df['flag'] = 0
+    combine_df = df.append(freq_df)
+    combine_df = combine_df.groupby('timestamp').max()
+    close_df = combine_df.bfill()['close']
     close_df = close_df.rolling('600s', min_periods=1).mean()
+    close_df = pd.DataFrame(close_df).join(combine_df['flag'])
     close_df.reset_index(inplace=True)
+    close_df = close_df[close_df.flag == 1]
+    close_df.drop(['flag'], axis=1, inplace=True)
     close_df.columns = ['timestamp', 'twap']
     df = df.merge(close_df, on='timestamp', how='inner')
     df.to_csv(f'csv/{POOL_NAME}-10mTWAP-check.csv')
