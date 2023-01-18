@@ -1,3 +1,5 @@
+# Usage: brownie run univ3_prices.py main '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640','12732054','12738508' --network mainnet  # NOQA
+
 from brownie import Contract
 import pandas as pd
 import numpy as np
@@ -106,16 +108,21 @@ def main(args):
     df.to_csv(f'csv/{POOL_NAME}-SPOT-check.csv')
 
     # Get 10m TWAP at 10m periodicity
+    # Step 1: get timestamps at every 10 mins
     freq_df = df.set_index('timestamp')
     freq_df = freq_df.asfreq('10min').reset_index()
     freq_df['flag'] = 1
     df['flag'] = 0
+    # Step 2: Append that with actual data and de-duplicate (by taking max)
     combine_df = df.append(freq_df)
     combine_df = combine_df.groupby('timestamp').max()
+    # Step 3: Remove NaNs obtained in freq_df
     close_df = combine_df.bfill()['close']
+    # Step 4: 10 min TWAP
     close_df = close_df.rolling('600s', min_periods=1).mean()
     close_df = pd.DataFrame(close_df).join(combine_df['flag'])
     close_df.reset_index(inplace=True)
+    # Step 5: Only retain rows at 10 min gaps
     close_df = close_df[close_df.flag == 1]
     close_df.drop(['flag'], axis=1, inplace=True)
     close_df.columns = ['timestamp', 'twap']
