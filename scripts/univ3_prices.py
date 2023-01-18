@@ -1,6 +1,7 @@
 from brownie import Contract
 import pandas as pd
 import numpy as np
+import json
 
 
 POOL_NAME = 'ETH-USDC'
@@ -12,6 +13,11 @@ def split_args(args):
     lb = int(l_arg[1].strip())
     ub = int(l_arg[2].strip())
     return pool_addr, lb, ub
+
+
+def json_load(name):
+    f = open(f'scripts/constants/{name}.json')
+    return json.load(f)
 
 
 def load_contract(address):
@@ -46,8 +52,11 @@ def main(args):
     # Get args
     pool_addr, lb, ub = split_args(args)
 
-    # Load contracts
-    pool = load_contract(pool_addr)
+    # Load contracts and token decimals info
+    abi = json_load('univ3.abi')
+    pool = Contract.from_abi('pool', pool_addr, abi)
+    decimals_0 = load_contract(pool.token0()).decimals()
+    decimals_1 = load_contract(pool.token1()).decimals()
 
     # Get events in batches (single pull might result in timeout error)
     pool_events_l = []
@@ -58,17 +67,18 @@ def main(args):
             break
         pool_events_l.append(
             pool.events.get_sequence(
+                event_type='Swap',
                 from_block=rng[i]+1,
                 to_block=rng[i+1])
         )
 
     # Make pandas df out of events dict
-    sync_l = []
+    swap_l = []
     for i in range(len(pool_events_l)):
-        sync_l.append(get_event_df(pool_events_l[i].Sync,
+        swap_l.append(get_event_df(pool_events_l[0],
                                    ['logIndex',
                                     'transactionHash', 'blockNumber']))
-    sync_df = pd.concat(sync_l)
+    swap_df = pd.concat(swap_l)
 
     # Get timestamps wrt block number.
     # Using raw data pulled from bigquery for ethereum (google).
@@ -81,8 +91,9 @@ def main(args):
     block_df.columns = ['timestamp', 'blockNumber']
 
     # Get block timestamps
-    df = sync_df.merge(block_df, on='blockNumber', how='inner')
-    df['close'] = df.reserve1/df.reserve0
+    df = swap_df.merge(block_df, on='blockNumber', how='inner')
+    df['close'] =\
+        ((df.sqrtPriceX96**2) * (10**(decimals_0-decimals_1))) / (2**(96*2))
 
     # There are multiple swaps within a block and all affect price.
     # Keep only the last swap. That price should only be associated with
@@ -91,13 +102,21 @@ def main(args):
     df = df.merge(last_swap, on=['blockNumber', 'logIndex'], how='inner')
 
     # Save data
-    df.to_csv(f'csv/{POOL_NAME}-SPOT-20210115-20210630.csv')
+    df = df[['close', 'timestamp']]
+    df.to_csv(f'csv/{POOL_NAME}-SPOT-check.csv')
 
-    # Get 10m TWAP
-    close_df = df[['close', 'timestamp']]
-    close_df.set_index('timestamp', inplace=True)
+    # Get 10m TWAP at 10m periodicity
+    freq_df = df.set_index('timestamp')
+    freq_df = freq_df.asfreq('10min').reset_index()
+    freq_df['flag'] = 1
+    df['flag'] = 0
+    combine_df = df.append(freq_df)
+    combine_df = combine_df.groupby('timestamp').max()
+    close_df = combine_df.bfill()['close']
     close_df = close_df.rolling('600s', min_periods=1).mean()
+    close_df = pd.DataFrame(close_df).join(combine_df['flag'])
     close_df.reset_index(inplace=True)
+    close_df = close_df[close_df.flag == 1]
+    close_df.drop(['flag'], axis=1, inplace=True)
     close_df.columns = ['timestamp', 'twap']
-    df = df.merge(close_df, on='timestamp', how='inner')
-    df.to_csv(f'csv/{POOL_NAME}-10mTWAP-20210115-20210630.csv')
+    close_df.to_csv(f'csv/{POOL_NAME}-10mTWAP-check.csv')
