@@ -77,7 +77,7 @@ def main(args):
     # Make pandas df out of events dict
     swap_l = []
     for i in range(len(pool_events_l)):
-        swap_l.append(get_event_df(pool_events_l[0],
+        swap_l.append(get_event_df(pool_events_l[i],
                                    ['logIndex',
                                     'transactionHash', 'blockNumber']))
     swap_df = pd.concat(swap_l)
