@@ -6,15 +6,15 @@ import numpy as np
 import json
 
 
-POOL_NAME = 'ETH-USDC'
-
-
 def split_args(args):
     l_arg = args.split(',')
     pool_addr = l_arg[0].strip()
     lb = int(l_arg[1].strip())
     ub = int(l_arg[2].strip())
-    return pool_addr, lb, ub
+    pool_name = l_arg[3].strip()
+    twap_length = int(l_arg[4].strip())
+    periodicity = int(l_arg[5].strip())
+    return pool_addr, lb, ub, pool_name, twap_length, periodicity
 
 
 def json_load(name):
@@ -52,7 +52,7 @@ def get_event_df(event_list, cols):
 
 def main(args):
     # Get args
-    pool_addr, lb, ub = split_args(args)
+    pool_addr, lb, ub, pool_name, twap_length, periodicity = split_args(args)
 
     # Load contracts and token decimals info
     abi = json_load('univ3.abi')
@@ -105,12 +105,12 @@ def main(args):
 
     # Save data
     df = df[['close', 'timestamp']]
-    df.to_csv(f'csv/{POOL_NAME}-SPOT-check.csv')
+    df.to_csv(f'csv/{pool_name}-SPOT-check.csv')
 
-    # Get 10m TWAP at 10m periodicity
-    # Step 1: get timestamps at every 10 mins
+    # Get `twap_length` TWAP at `periodicity` periodicity
+    # Step 1: get timestamps at every `periodicity` mins
     freq_df = df.set_index('timestamp')
-    freq_df = freq_df.asfreq('10min').reset_index()
+    freq_df = freq_df.asfreq(f'{periodicity/60}min').reset_index()
     freq_df['flag'] = 1
     df['flag'] = 0
     # Step 2: Append that with actual data and de-duplicate (by taking max)
@@ -118,12 +118,12 @@ def main(args):
     combine_df = combine_df.groupby('timestamp').max()
     # Step 3: Remove NaNs obtained in freq_df
     close_df = combine_df.bfill()['close']
-    # Step 4: 10 min TWAP
-    close_df = close_df.rolling('600s', min_periods=1).mean()
+    # Step 4: Get `twap_length` TWAP
+    close_df = close_df.rolling(f'{twap_length}s', min_periods=1).mean()
     close_df = pd.DataFrame(close_df).join(combine_df['flag'])
     close_df.reset_index(inplace=True)
-    # Step 5: Only retain rows at 10 min gaps
+    # Step 5: Only retain rows at `twap_length` gaps
     close_df = close_df[close_df.flag == 1]
     close_df.drop(['flag'], axis=1, inplace=True)
     close_df.columns = ['timestamp', 'twap']
-    close_df.to_csv(f'csv/{POOL_NAME}-10mTWAP-check.csv')
+    close_df.to_csv(f'csv/{pool_name}-{twap_length/60}mTWAP-check.csv')

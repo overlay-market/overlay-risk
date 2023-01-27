@@ -1,0 +1,7 @@
+filename: NFTX-WETH-10mTWAP-20210115-20210630
+pool_addr: '0xcbcdf9626bc03e24f779434178a73a0b4bad62ed'
+pool_name: WBTC-WETH
+start_block: 12403258
+end_block: 16372679
+twap_length: 600
+periodicity: 600
