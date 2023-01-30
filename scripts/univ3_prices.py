@@ -64,7 +64,8 @@ def main(args):
     pool_events_l = []
     rng = get_block_ranges(lb, ub)
     for i in range(len(rng)):
-        print(f'{np.round((i/len(rng)) * 100, 2)}% complete', end="\r")
+        print(f'Data pull {np.round((i/len(rng)) * 100, 2)}% complete',
+              end="\r")
         if i == len(rng)-1:
             break
         pool_events_l.append(
@@ -105,7 +106,7 @@ def main(args):
 
     # Save data
     df = df[['close', 'timestamp']]
-    df.to_csv(f'csv/{pool_name}-SPOT-check.csv')
+    df.to_csv(f'csv/{pool_name}-SPOT.csv')
 
     # Get `twap_length` TWAP at `periodicity` periodicity
     # Step 1: get timestamps at every `periodicity` mins
@@ -126,4 +127,4 @@ def main(args):
     close_df = close_df[close_df.flag == 1]
     close_df.drop(['flag'], axis=1, inplace=True)
     close_df.columns = ['timestamp', 'twap']
-    close_df.to_csv(f'csv/{pool_name}-{twap_length/60}mTWAP-check.csv')
+    close_df.to_csv(f'csv/{pool_name}-{twap_length/60}mTWAP.csv')
