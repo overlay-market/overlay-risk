@@ -7,7 +7,7 @@ import pandas as pd
 
 
 # # Global variables
-# Get poetry install python and brownie
+# Get brownie and python installed thru poetry
 python_path = str(Path(sys.executable))
 brownie_path = str(Path(sys.executable).parent.joinpath('brownie'))
 
@@ -28,7 +28,7 @@ def main():
                f"'{inputs['end_block']}','{inputs['pool_name']}',"
                f"'{inputs['twap_length']}','{inputs['periodicity']}'"
                " --network mainnet")
-    run_command(command)
+    # run_command(command)
 
     # # Plot and save prices
     filename = f"{inputs['pool_name']}-{inputs['twap_length']/60}mTWAP"
@@ -40,14 +40,27 @@ def main():
     command = (python_path + f" scripts/csv_funding.py --filename {filename}"
                f" --periodicity {inputs['periodicity']}"
                f" --payoffcap {inputs['payoff_cap']}")
-    run_command(command)
+    # run_command(command)
 
     # # Run impact script
+    command = (python_path + f" scripts/csv_impact.py --filename {filename}"
+               f" --periodicity {inputs['periodicity']}"
+               f" --payoffcap {inputs['payoff_cap']}"
+               f" --short_twap {inputs['short_twap']}")
+    run_command(command)
 
     # # Run pricedrift script
+    command = (python_path +
+               f" scripts/csv_pricedrift.py --filename {filename}"
+               f" --periodicity {inputs['periodicity']}"
+               f" --long_twap {inputs['short_twap']}")
+    run_command(command)
 
     # # Run liquidations script
-
+    command = (python_path +
+               f" scripts/csv_liquidations.py --filename {filename}"
+               f" --periodicity {inputs['periodicity']}")
+    run_command(command)
 
 
 if __name__ == '__main__':

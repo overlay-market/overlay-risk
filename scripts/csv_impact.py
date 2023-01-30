@@ -3,18 +3,40 @@ import pandas as pd
 import numpy as np
 
 from scipy import integrate
+import argparse
 
-
-FILENAME = "ETHUSD-600-20210401-20210630"
-FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-T = 600  # 10m candle size on datafile
-V = 600  # 10m shorter TWAP
-CP = 10  # 10x payoff cap
 
 # uncertainties
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
 # target OI threshold beyond which scalp trade is negative EV
 Q0S = np.array([0.005 * i for i in range(1, 11, 1)])
+
+
+def get_params():
+    """
+    Get parameters from command line
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--filename', type=str,
+        help='Name of the input data file'
+    )
+    parser.add_argument(
+        '--periodicity', type=int,
+        help='Cadence of input data'
+    )
+    parser.add_argument(
+        '--payoffcap', type=int,
+        help='Cap on pay off chosen by governance'
+    )
+    parser.add_argument(
+        '--short_twap', type=int,
+        help='Shorter TWAP'
+    )
+
+    args = parser.parse_args()
+    return args.filename, args.periodicity, args.payoffcap, args.short_twap
 
 
 def gaussian():
@@ -179,6 +201,8 @@ def main():
     Fits input csv timeseries data with pystable and generates output
     csv with market impact static spread + slippage params.
     """
+    FILENAME, T, CP, V = get_params()
+    FILEPATH = f"csv/{FILENAME}.csv"  # datafile
     print(f'Analyzing file {FILENAME}')
     df = pd.read_csv(FILEPATH)
     p = df['c'].to_numpy() if 'c' in df else df['twap']

@@ -2,6 +2,7 @@ import pystable
 import pandas as pd
 import numpy as np
 from scipy import integrate
+import argparse
 
 
 FILENAME = "ETHUSD-600-20210401-20210630"
@@ -12,6 +13,25 @@ TS = 3600 * np.arange(1, 721)  # 1h, 2h, 3h, ...., 30d
 # uncertainties
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
 ALPHA = 0.05
+
+
+def get_params():
+    """
+    Get parameters from command line
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--filename', type=str,
+        help='Name of the input data file'
+    )
+    parser.add_argument(
+        '--periodicity', type=int,
+        help='Cadence of input data'
+    )
+
+    args = parser.parse_args()
+    return args.filename, args.periodicity
 
 
 def gaussian():
@@ -124,6 +144,8 @@ def main():
     Fits input csv timeseries data with pystable and generates output
     csv with market impact static spread + slippage params.
     """
+    FILENAME, T = get_params()
+    FILEPATH = f"csv/{FILENAME}.csv"  # datafile
     print(f'Analyzing file {FILENAME}')
     df = pd.read_csv(FILEPATH)
     p = df['c'].to_numpy() if 'c' in df else df['twap']
@@ -165,7 +187,9 @@ def main():
     # Calibrate betas
     betas = []
     for i in range(len(df_mms)):
-        print(f'{np.round((i/len(df_mms)) * 100, 2)}% complete', end="\r")
+        print(
+            f'Calibrating betas: {np.round((i/len(df_mms))*100,2)}% complete',
+            end="\r")
         betas.append(
             beta(dst.contents.alpha, dst.contents.beta,
                  dst.contents.mu_1, dst.contents.sigma,

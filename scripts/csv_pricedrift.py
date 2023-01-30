@@ -1,15 +1,33 @@
 import pystable
 import pandas as pd
 import numpy as np
-
-
-FILENAME = "ETHUSD-600-20210401-20210630"
-FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-T = 600  # 10m candle size on datafile
-V = 3600  # 60m longer TWAP
+import argparse
 
 # uncertainties
 ALPHAS = np.array([0.001, 0.01, 0.025, 0.05, 0.075, 0.1])
+
+
+def get_params():
+    """
+    Get parameters from command line
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--filename', type=str,
+        help='Name of the input data file'
+    )
+    parser.add_argument(
+        '--periodicity', type=int,
+        help='Cadence of input data'
+    )
+    parser.add_argument(
+        '--long_twap', type=int,
+        help='Longer TWAP'
+    )
+
+    args = parser.parse_args()
+    return args.filename, args.periodicity, args.long_twap
 
 
 def gaussian():
@@ -87,6 +105,8 @@ def main():
     Fits input csv timeseries data with pystable and generates output
     csv with market impact static spread + slippage params.
     """
+    FILENAME, T, V = get_params()
+    FILEPATH = f"csv/{FILENAME}.csv"  # datafile
     print(f'Analyzing file {FILENAME}')
     df = pd.read_csv(FILEPATH)
     p = df['c'].to_numpy() if 'c' in df else df['twap']
