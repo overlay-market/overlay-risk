@@ -18,11 +18,11 @@ def get_params():
     )
     parser.add_argument(
         '--pull_periodicity', type=int,
-        help='Cadence of data required from Coinbase'
+        help='Cadence of data required from Coinbase (in secs). Ex: 300'
     )
     parser.add_argument(
         '--final_periodicity', type=int,
-        help='Cadence of data required for risk analysis'
+        help='Cadence of data required for risk analysis (in secs). Ex: 600'
     )
     parser.add_argument(
         '--start_time', type=str,
@@ -49,6 +49,7 @@ def chart(df, title, label, t, pair, start, end):
 def main():
     pair, t, tf, start, end = get_params()
     # Pull and save data
+    # TODO: Check if file exists
     df = HistoricalData(pair, t, start, end).retrieve_data()
     df.to_csv(f"csv/{pair}-SPOT-{t}-{start}-{end}.csv")
     df = pd.read_csv(f"csv/{pair}-SPOT-{t}-{start}-{end}.csv",
@@ -96,6 +97,7 @@ def main():
 
     # Ffill nulls by default
     # But reconsider based on insights from null report
+    # TODO: Print warnings
     df.close.ffill(inplace=True)
 
     # TWAP and periodicity
