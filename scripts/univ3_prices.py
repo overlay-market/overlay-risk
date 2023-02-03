@@ -106,7 +106,7 @@ def main(args):
 
     # Save data
     df = df[['close', 'timestamp']]
-    df.to_csv(f'csv/{pool_name}-SPOT.csv')
+    df.to_csv(f'csv/{pool_name}-SPOT-{lb}-to-{ub}.csv')
 
     # Get `twap_length` TWAP at `periodicity` periodicity
     # Step 1: get timestamps at every `periodicity` mins
@@ -127,4 +127,4 @@ def main(args):
     close_df = close_df[close_df.flag == 1]
     close_df.drop(['flag'], axis=1, inplace=True)
     close_df.columns = ['timestamp', 'twap']
-    close_df.to_csv(f'csv/{pool_name}-{twap_length/60}mTWAP.csv')
+    close_df.to_csv(f'csv/{pool_name}-{twap_length/60}mTWAP-{lb}-to-{ub}.csv')
