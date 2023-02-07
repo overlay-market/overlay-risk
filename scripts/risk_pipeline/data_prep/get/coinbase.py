@@ -2,6 +2,7 @@ from Historic_Crypto import HistoricalData  # Uses coinbase pro API
 import argparse
 import os
 import sys
+import pandas as pd
 sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
 from helpers import helpers  # noqa
 
@@ -43,10 +44,11 @@ def get_data(pair, t, start, end):
     full_path = file_path + file_name
     if helpers.file_exists(full_path):
         print(f"Data {file_name} already exists")
+        return pd.read_csv(full_path), full_path
     else:
         df = HistoricalData(pair, t, start, end).retrieve_data()
         helpers.csv(df, full_path)
-        return df
+        return df, full_path
 
 
 if __name__ == '__main__':
