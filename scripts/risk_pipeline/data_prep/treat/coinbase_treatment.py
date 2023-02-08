@@ -47,7 +47,7 @@ def treatment(file_name, t, tf):
     chartname = f"{file_name}_raw"
     xcol = 'time'
     ycol = 'close'
-    visualizations.time_series(df, title, chartname, xcol, ycol, results_path)
+    visualizations.line_chart(df, title, chartname, xcol, ycol, results_path)
 
     # Get report on missing values
     df_m = missing_values.missing_candlesticks(
@@ -65,7 +65,7 @@ def treatment(file_name, t, tf):
     chartname = f"{file_name}_final"
     xcol = 'time'
     ycol = 'close'
-    visualizations.time_series(df_f, title, chartname, xcol,
+    visualizations.line_chart(df_f, title, chartname, xcol,
                                ycol, results_path)
 
     # Save data

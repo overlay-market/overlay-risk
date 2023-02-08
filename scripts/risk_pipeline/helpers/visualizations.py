@@ -1,7 +1,7 @@
 import plotly.express as px
 
 
-def time_series(df, title, chartname, xcol, ycol, path):
+def line_chart(df, title, chartname, xcol, ycol, path):
     # Plot feed
     fig = px.line(df[[xcol, ycol]], x=xcol, y=ycol)
     fig.update_layout(title=title)
