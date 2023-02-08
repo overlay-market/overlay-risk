@@ -13,10 +13,14 @@ def csv(df, file_w_path):
 
 
 def create_dir(dir_name):
-    dir_path = os.getcwd()+'/scripts/risk_pipeline/outputs/results/'+dir_name
+    dir_path = get_results_dir() + dir_name
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
         print(f"Directory created: {dir_path}")
     else:
         print(f"Directory {dir_path} already exists")
     return dir_path
+
+
+def get_results_dir():
+    return os.getcwd()+'/scripts/risk_pipeline/outputs/results/'
