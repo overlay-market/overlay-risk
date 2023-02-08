@@ -1,10 +1,14 @@
 import pystable
 import pandas as pd
 import numpy as np
+import sys
+import os
 
 from scipy import integrate
 import argparse
 
+sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
+from helpers import helpers  # noqa
 
 # uncertainties
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
@@ -196,16 +200,17 @@ def lmbda(a: float, b: float, mu: float, sig: float, v: float, g_inv: float,
     return np.maximum(lmbda_l, lmbda_s)
 
 
-def main():
+def main(filename, t, cp, st):
     """
     Fits input csv timeseries data with pystable and generates output
     csv with market impact static spread + slippage params.
     """
-    FILENAME, T, CP, V = get_params()
-    FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-    print(f'Analyzing file {FILENAME}')
-    df = pd.read_csv(FILEPATH)
-    p = df['c'].to_numpy() if 'c' in df else df['twap']
+    filepath = f"scripts/risk_pipeline/outputs/data/{filename}.csv"  # datafile
+    resultsname = filename.replace('_treated', '')
+    resultspath = helpers.get_results_dir() + resultsname
+    print(f'Analyzing file {filename}')
+    df = pd.read_csv(filepath)
+    p = df['close'].to_numpy() if 'close' in df else df['twap']
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from
@@ -217,30 +222,30 @@ def main():
         '''
     )
 
-    dst = rescale(dst, 1/T)
+    dst = rescale(dst, 1/t)
     print(
         f'''
-        rescaled params (1/T = {1/T}):
+        rescaled params (1/t = {1/t}):
         alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
         mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
         '''
     )
-    g_inv = np.log(1+CP)
+    g_inv = np.log(1+cp)
 
     # calc deltas
     deltas = delta(dst.contents.alpha, dst.contents.beta,
-                   dst.contents.mu_1, dst.contents.sigma, V, ALPHAS)
+                   dst.contents.mu_1, dst.contents.sigma, st, ALPHAS)
     df_deltas = pd.DataFrame(data=[ALPHAS, deltas]).T
     df_deltas.columns = ['alpha', 'delta']
     print('deltas:', df_deltas)
-    df_deltas.to_csv(f"csv/metrics/{FILENAME}-deltas.csv", index=False)
+    df_deltas.to_csv(f"{resultspath}/{resultsname}-deltas.csv", index=False)
 
     # calc lambda (mkt impact)
     ls = []
     for alpha in ALPHAS:
         lambdas = lmbda(dst.contents.alpha, dst.contents.beta,
                         dst.contents.mu_1, dst.contents.sigma,
-                        V, g_inv, alpha, Q0S)
+                        st, g_inv, alpha, Q0S)
         ls.append(lambdas)
 
     df_ls = pd.DataFrame(
@@ -249,8 +254,15 @@ def main():
         index=[f"alpha={alpha}" for alpha in ALPHAS]
     )
     print('lambdas:', df_ls)
-    df_ls.to_csv(f"csv/metrics/{FILENAME}-lambdas.csv")
+    df_ls.to_csv(f"{resultspath}/{resultsname}-lambdas.csv")
+    return df_deltas, df_ls
 
 
 if __name__ == '__main__':
-    main()
+    root_dir = 'overlay-risk'
+    if os.path.basename(os.getcwd()) == root_dir:
+        filename, t, cp, st = get_params()
+        main(filename, t, cp, st)
+    else:
+        print("Run failed")
+        print(f"Run this script from the root directory: {root_dir}")
