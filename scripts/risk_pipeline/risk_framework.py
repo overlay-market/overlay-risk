@@ -2,6 +2,9 @@ import os
 import argparse
 import helpers.helpers as helpers
 import risk.parameters.csv_funding as funding
+import risk.parameters.csv_impact as impact
+import risk.parameters.csv_liquidations as liq
+import risk.parameters.csv_pricedrift as drift
 
 
 def get_params():
@@ -39,8 +42,11 @@ def get_params():
 def main(file_name, p, cp, st, lt):
     results_name = file_name.replace('_treated', '')
     helpers.create_dir(results_name)
-    funding.main(file_name, p, cp)
-    breakpoint()
+    df_ks, df_nvars_long, df_nvars_short, df_ness_long, df_ness_short,\
+        df_nevs_long, df_nevs_short = funding.main(file_name, p, cp)
+    df_deltas, df_ls = impact.main(file_name, p, cp, st)
+    df_mms, df_betas = liq.main(file_name, p)
+    df_mus = drift.main(file_name, p, lt)
 
 
 if __name__ == '__main__':
