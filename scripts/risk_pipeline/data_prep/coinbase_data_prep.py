@@ -38,7 +38,8 @@ def get_params():
 def main(pair, t, tf, start, end):
     _, data_path = gc.get_data(pair, t, start, end)
     data_name = os.path.basename(data_path).replace('.csv', '')
-    _ = tc.treatment(data_name, t, tf)
+    df = tc.treatment(data_name, t, tf)
+    return df
 
 
 if __name__ == '__main__':

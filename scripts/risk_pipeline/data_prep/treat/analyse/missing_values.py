@@ -15,7 +15,6 @@ def missing_candlesticks(df, freq, time_col, price_col, filename, path):
         current += timedelta(minutes=freq/60)
 
     time_df = pd.DataFrame({time_col: np.array(timestamp_list)})
-    breakpoint()
     df = time_df.merge(df, how='left', on=time_col)
 
     # Report info on missing values
