@@ -221,11 +221,12 @@ def main(filename, t, cp):
     Fits input csv timeseries data with pystable and generates output
     csv with funding constant params.
     """
-    filepath = f"csv/{filename}.csv"  # datafile
-    results_name = filename.replace('_treated', '')
+    filepath = f"scripts/risk_pipeline/outputs/data/{filename}.csv"  # datafile
+    resultsname = filename.replace('_treated', '')
+    resultspath = helpers.get_results_dir() + resultsname
     print(f'Analyzing file {filename}')
     df = pd.read_csv(filepath)
-    p = df['c'].to_numpy() if 'c' in df else df['twap']
+    p = df['close'].to_numpy() if 'close' in df else df['twap']
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from
@@ -263,7 +264,7 @@ def main(filename, t, cp):
         index=[f"n={n}" for n in NS]
     )
     print('ks:', df_ks)
-    df_ks.to_csv(f"csv/metrics/{filename}-ks.csv")
+    df_ks.to_csv(f"{resultspath}/{resultsname}-ks.csv")
 
     # For different k values at alpha = 0.05 level (diff n calibs),
     # plot VaR and ES at times into the future
@@ -341,11 +342,11 @@ def main(filename, t, cp):
     )
     print(f'nvars long (alpha={ALPHA}):', df_nvars_long)
     df_nvars_long.to_csv(
-        f"csv/metrics/{filename}-nvars-long-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-nvars-long-alpha-{ALPHA}.csv")
 
     print(f'nvars short (alpha={ALPHA}):', df_nvars_short)
     df_nvars_short.to_csv(
-        f"csv/metrics/{filename}-nvars-short-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-nvars-short-alpha-{ALPHA}.csv")
 
     # Expected shortfall dataframe to csv
     df_ness_long = pd.DataFrame(
@@ -360,11 +361,11 @@ def main(filename, t, cp):
     )
     print(f'ness long (alpha={ALPHA}):', df_ness_long)
     df_ness_long.to_csv(
-        f"csv/metrics/{filename}-ness-long-conditional-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-ness-long-conditional-alpha-{ALPHA}.csv")
 
     print(f'ness short (alpha={ALPHA}):', df_ness_short)
     df_ness_short.to_csv(
-        f"csv/metrics/{filename}-ness-short-conditional-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-ness-short-conditional-alpha-{ALPHA}.csv")
 
     # Expected value dataframe to csv
     df_nevs_long = pd.DataFrame(
@@ -379,11 +380,11 @@ def main(filename, t, cp):
     )
     print(f'nevs long (alpha={ALPHA}):', df_nevs_long)
     df_nevs_long.to_csv(
-        f"csv/metrics/{filename}-nevs-long-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-nevs-long-alpha-{ALPHA}.csv")
 
     print(f'nevs short (alpha={ALPHA}):', df_nevs_short)
     df_nevs_short.to_csv(
-        f"csv/metrics/{filename}-nevs-short-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-nevs-short-alpha-{ALPHA}.csv")
     
     return df_ks, df_nvars_long, df_nvars_short, df_ness_long, df_ness_short,\
         df_nevs_long, df_nevs_short
