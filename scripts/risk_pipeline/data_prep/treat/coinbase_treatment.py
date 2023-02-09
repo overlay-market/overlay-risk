@@ -6,7 +6,7 @@ sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
 from data_prep.treat.analyse import missing_values  # noqa
 from data_prep.treat.treatment import missing_value_treatment, twap  # noqa
 from helpers import helpers  # noqa
-from helpers import visualizations  # noqa
+import visualizations.charts.charts as visualizations  # noqa
 
 
 def get_params():
@@ -66,7 +66,7 @@ def treatment(file_name, t, tf):
     xcol = 'time'
     ycol = 'close'
     visualizations.line_chart(df_f, title, chartname, xcol,
-                               ycol, results_path)
+                              ycol, results_path)
 
     # Save data
     final_file_name = file_name + "_treated.csv"
