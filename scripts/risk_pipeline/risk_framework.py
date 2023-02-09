@@ -2,12 +2,13 @@ import os
 import argparse
 import numpy as np
 import helpers.helpers as helpers
-import helpers.visualizations as vis
 import risk.parameters.csv_funding as funding
 import risk.parameters.csv_impact as impact
 import risk.parameters.csv_liquidations as liq
 import risk.parameters.csv_pricedrift as drift
 import risk.overlay.pricing as pricing
+import visualizations.data.viz_data_prep as vdp
+import visualizations.charts.charts as vis
 
 
 def get_params():
@@ -88,28 +89,16 @@ def main(file_name, p, cp, st, lt):
     )
     df_ls_pivot.columns = ['alpha', 'perc_volume', 'ls']
 
-    # Remove prefixes
-    df_ls_pivot['alpha'] = df_ls_pivot['alpha'].apply(
-        lambda x: float(x.replace('alpha=', ''))
-    )
-    df_ls_pivot['perc_volume'] = df_ls_pivot['perc_volume'].apply(
-        lambda x: float(x.replace('q0=', ''))
-    )
+    # Remove prefixes and make numeric
+    df_ls_pivot = vdp.make_numeric(df_ls_pivot, 'alpha=', 'alpha')
+    df_ls_pivot = vdp.make_numeric(df_ls_pivot, 'q0=', 'perc_volume')
 
     # Get all volumes against lambdas
     df_ls_pivot = df_ls_pivot.merge(
         df_ls_pivot.perc_volume.drop_duplicates(), how='cross')
 
-    # Get bid and ask prices
-    sample_twap = 100  # Can be any number
-    df_ls_pivot['bid'] = df_ls_pivot.apply(
-        lambda x: pricing.bid(sample_twap, 0, x.ls, x.perc_volume_y), axis=1
-    )
-    df_ls_pivot['ask'] = df_ls_pivot.apply(
-        lambda x: pricing.ask(sample_twap, 0, x.ls, x.perc_volume_y), axis=1
-    )
-    df_ls_pivot['bid_perc'] = abs(df_ls_pivot.bid-sample_twap)/sample_twap
-    df_ls_pivot['ask_perc'] = abs(df_ls_pivot.ask-sample_twap)/sample_twap
+    # Get bid and ask prices and percentage change from TWAP
+    df_ls_pivot = vdp.bid_ask_perc_change(df_ls_pivot, 'ls', 'perc_volume_y')
 
     # Group bid and ask for grouped bar plot
     df_ls_pivot = df_ls_pivot.melt(
@@ -118,6 +107,7 @@ def main(file_name, p, cp, st, lt):
         var_name='bid_ask',
         value_name='perc_change'
     )
+
     vis.slider_grouped_bar_chart(
         df_ls_pivot,
         "Abs percentage change in price due to lambda and volume",
