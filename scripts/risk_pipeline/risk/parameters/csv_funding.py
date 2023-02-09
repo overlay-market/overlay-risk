@@ -365,7 +365,8 @@ def main(filename, t, cp):
 
     print(f'ness short (alpha={ALPHA}):', df_ness_short)
     df_ness_short.to_csv(
-        f"{resultspath}/{resultsname}-ness-short-conditional-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}"
+        f"-ness-short-conditional-alpha-{ALPHA}.csv")
 
     # Expected value dataframe to csv
     df_nevs_long = pd.DataFrame(
@@ -385,7 +386,7 @@ def main(filename, t, cp):
     print(f'nevs short (alpha={ALPHA}):', df_nevs_short)
     df_nevs_short.to_csv(
         f"{resultspath}/{resultsname}-nevs-short-alpha-{ALPHA}.csv")
-    
+
     return df_ks, df_nvars_long, df_nvars_short, df_ness_long, df_ness_short,\
         df_nevs_long, df_nevs_short
 

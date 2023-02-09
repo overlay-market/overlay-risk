@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
 from helpers import helpers  # noqa
-import risk.overlay.pricing as pricing
+import risk.overlay.pricing as pricing  # noqa
 
 
 def make_numeric(df, pre, col):

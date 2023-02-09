@@ -1,6 +1,5 @@
 import os
 import argparse
-import numpy as np
 import helpers.helpers as helpers
 import risk.parameters.csv_funding as funding
 import risk.parameters.csv_impact as impact
@@ -52,7 +51,7 @@ def main(file_name, p, cp, st, lt):
         df_nevs_long, df_nevs_short = funding.main(file_name, p, cp)
     df_deltas, df_ls = impact.main(file_name, p, cp, st)
     df_mms, df_betas = liq.main(file_name, p)
-    df_mus = drift.main(file_name, p, lt)
+    _ = drift.main(file_name, p, lt)
 
     # Funding visualizations
     # Funding % Paid Daily for Various Anchor Times
