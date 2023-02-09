@@ -25,4 +25,5 @@ def slider_grouped_bar_chart(df, title, path, chartname, xcol,
     )
     fig["layout"].pop("updatemenus")  # Optional; drop animation buttons
     fig.update_layout(xaxis_title=x_name, yaxis_title=y_name)
+    fig.update_layout(title=title)
     fig.write_html(f"{path}/{chartname}.html")
