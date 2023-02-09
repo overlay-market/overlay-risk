@@ -7,6 +7,7 @@ import risk.parameters.csv_funding as funding
 import risk.parameters.csv_impact as impact
 import risk.parameters.csv_liquidations as liq
 import risk.parameters.csv_pricedrift as drift
+import risk.overlay.pricing as pricing
 
 
 def get_params():
@@ -69,7 +70,63 @@ def main(file_name, p, cp, st, lt):
 
     # Spread visualizations
     # Percentage difference between bid and ask
-    
+    bid = df_deltas['delta'].apply(lambda x: pricing.bid(100, x, 0, 0))
+    ask = df_deltas['delta'].apply(lambda x: pricing.ask(100, x, 0, 0))
+    df_deltas['spread_perc'] = ask/bid - 1
+    vis.line_chart(
+        df_deltas,
+        "Percentage difference between bid and ask for various alpha",
+        "Spread percentage difference",
+        'alpha', 'spread_perc',
+        helpers.get_results_dir()+results_name
+    )
+
+    # Impact visualizations
+    # Arrange data
+    df_ls_pivot = df_ls.reset_index().melt(
+        id_vars='index', var_name='q0', value_name='value'
+    )
+    df_ls_pivot.columns = ['alpha', 'perc_volume', 'ls']
+
+    # Remove prefixes
+    df_ls_pivot['alpha'] = df_ls_pivot['alpha'].apply(
+        lambda x: float(x.replace('alpha=', ''))
+    )
+    df_ls_pivot['perc_volume'] = df_ls_pivot['perc_volume'].apply(
+        lambda x: float(x.replace('q0=', ''))
+    )
+
+    # Get all volumes against lambdas
+    df_ls_pivot = df_ls_pivot.merge(
+        df_ls_pivot.perc_volume.drop_duplicates(), how='cross')
+
+    # Get bid and ask prices
+    sample_twap = 100  # Can be any number
+    df_ls_pivot['bid'] = df_ls_pivot.apply(
+        lambda x: pricing.bid(sample_twap, 0, x.ls, x.perc_volume_y), axis=1
+    )
+    df_ls_pivot['ask'] = df_ls_pivot.apply(
+        lambda x: pricing.ask(sample_twap, 0, x.ls, x.perc_volume_y), axis=1
+    )
+    df_ls_pivot['bid_perc'] = abs(df_ls_pivot.bid-sample_twap)/sample_twap
+    df_ls_pivot['ask_perc'] = abs(df_ls_pivot.ask-sample_twap)/sample_twap
+
+    # Group bid and ask for grouped bar plot
+    df_ls_pivot = df_ls_pivot.melt(
+        id_vars=['alpha', 'perc_volume_x', 'ls',
+                 'perc_volume_y', 'bid', 'ask'],
+        var_name='bid_ask',
+        value_name='perc_change'
+    )
+    vis.slider_grouped_bar_chart(
+        df_ls_pivot,
+        "Abs percentage change in price due to lambda and volume",
+        helpers.get_results_dir()+results_name,
+        "Price impact",
+        'perc_volume_y', 'perc_change', 'bid_ask', 'ls',
+        'Volume as percentage of cap (over short TWAP)',
+        'Abs percentage change in price'
+    )
 
 
 if __name__ == '__main__':

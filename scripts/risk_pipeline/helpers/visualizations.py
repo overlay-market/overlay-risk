@@ -10,7 +10,7 @@ def line_chart(df, title, chartname, xcol, ycol, path):
 
 
 def slider_grouped_bar_chart(df, title, path, chartname, xcol,
-                             ycol, grp, slider):
+                             ycol, grp, slider, x_name, y_name):
     '''
     Grouped bar chart with slider
     '''
@@ -24,4 +24,5 @@ def slider_grouped_bar_chart(df, title, path, chartname, xcol,
         barmode='group', animation_frame=slider
     )
     fig["layout"].pop("updatemenus")  # Optional; drop animation buttons
+    fig.update_layout(xaxis_title=x_name, yaxis_title=y_name)
     fig.write_html(f"{path}/{chartname}.html")
