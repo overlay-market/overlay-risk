@@ -2,9 +2,9 @@ import argparse
 import pandas as pd
 import os
 import sys
+from analyse import missing_values
+from treatment import missing_value_treatment, twap
 sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
-from data_prep.treat.analyse import missing_values  # noqa
-from data_prep.treat.treatment import missing_value_treatment, twap  # noqa
 from helpers import helpers  # noqa
 import visualizations.charts.charts as visualizations  # noqa
 
