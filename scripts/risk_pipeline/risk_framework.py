@@ -43,6 +43,14 @@ def get_params():
 
 
 def main(file_name, p, cp, st, lt):
+    '''
+    Args:
+        file_name: Name of the data file
+        p: Periodicity of the data file
+        cp: Cap pay off applied by governance/risk analyst
+        st: Length of short TWAP in secs
+        lt: Length of long TWAP in secs
+    '''
     results_name = file_name.replace('_treated', '')
     helpers.create_dir(results_name)
 
@@ -81,7 +89,7 @@ def main(file_name, p, cp, st, lt):
         helpers.get_results_dir()+results_name
     )
 
-    # Impact visualizations
+    # Price impact visualizations
     # Arrange data
     df_ls_pivot = df_ls.reset_index().melt(
         id_vars='index', var_name='q0', value_name='value'
