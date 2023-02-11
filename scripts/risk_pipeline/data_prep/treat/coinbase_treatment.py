@@ -50,8 +50,9 @@ def treatment(file_name, t, tf):
     visualizations.line_chart(df, title, chartname, xcol, ycol, results_path)
 
     # Get report on missing values
-    df_m = missing_values.missing_candlesticks(
-        df, t, 'time', 'close', file_name, results_path)
+    df_m, null_report = missing_values.missing_candlesticks(
+        df, t, 'time', 'close')
+    null_report.to_csv(f"{results_path}/{file_name}_missing_values.csv")
 
     # Treat missing values
     df_f = missing_value_treatment.forward_fill(df_m, 'close')

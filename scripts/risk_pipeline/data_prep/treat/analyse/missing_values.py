@@ -3,7 +3,7 @@ import numpy as np
 from datetime import timedelta
 
 
-def missing_candlesticks(df, freq, time_col, price_col, filename, path):
+def missing_candlesticks(df, freq, time_col, price_col):
     df[time_col] = pd.to_datetime(df[time_col])
     start_date = pd.to_datetime(df[time_col].min())
     end_date = pd.to_datetime(df[time_col].max())
@@ -38,5 +38,5 @@ def missing_candlesticks(df, freq, time_col, price_col, filename, path):
     null_report['percentage_change'] =\
         abs((null_report.post_null_price/null_report.pre_null_price) - 1) * 100
     null_report.sort_values('percentage_change', ascending=False, inplace=True)
-    null_report.to_csv(f'{path}/{filename}_missing_values.csv')
-    return df
+
+    return df, null_report
