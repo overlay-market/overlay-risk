@@ -5,8 +5,8 @@ import sys
 from analyse import missing_values
 from treatment import missing_value_treatment, twap
 sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
-from helpers import helpers  # noqa
-import visualizations.charts.charts as visualizations  # noqa
+from helpers import helpers  # noqa: E402
+import visualizations.line_chart as lc  # noqa: E402
 
 
 def get_params():

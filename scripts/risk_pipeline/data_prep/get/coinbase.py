@@ -4,7 +4,7 @@ import os
 import sys
 import pandas as pd
 sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
-from helpers import helpers  # noqa
+from helpers import helpers  # noqa: E402
 
 
 def get_params():
