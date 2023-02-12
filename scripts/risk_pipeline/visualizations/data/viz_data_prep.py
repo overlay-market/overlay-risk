@@ -1,8 +1,12 @@
-import sys
-import os
-sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
-from helpers import helpers  # noqa
-import risk.overlay.pricing as pricing  # noqa
+import numpy as np
+
+
+def bid(min_twap, delta, lmb, vol):
+    return min_twap * np.exp(-delta - (lmb*vol))
+
+
+def ask(min_twap, delta, lmb, vol):
+    return min_twap * np.exp(delta + (lmb*vol))
 
 
 def make_numeric(df, pre, col):
@@ -12,10 +16,10 @@ def make_numeric(df, pre, col):
 
 def bid_ask_perc_change(df, lmbd, vol, dlt=0, twap=100):
     df['bid'] = df.apply(
-        lambda x: pricing.bid(twap, dlt, x[lmbd], x[vol]), axis=1
+        lambda x: bid(twap, dlt, x[lmbd], x[vol]), axis=1
     )
     df['ask'] = df.apply(
-        lambda x: pricing.ask(twap, dlt, x[lmbd], x[vol]), axis=1
+        lambda x: ask(twap, dlt, x[lmbd], x[vol]), axis=1
     )
 
     df['bid_perc'] = (abs(df.bid-twap)/twap) * 100
