@@ -47,7 +47,8 @@ def treatment(file_name, t, tf):
     chartname = f"{file_name}_raw"
     xcol = 'time'
     ycol = 'close'
-    visualizations.line_chart(df, title, chartname, xcol, ycol, results_path)
+    fig = lc.LineChart(df, title, xcol, ycol).create_chart()
+    fig.write_html(f"{results_path}/{chartname}.html")
 
     # Get report on missing values
     df_m, null_report = missing_values.missing_candlesticks(
@@ -66,8 +67,8 @@ def treatment(file_name, t, tf):
     chartname = f"{file_name}_final"
     xcol = 'time'
     ycol = 'close'
-    visualizations.line_chart(df_f, title, chartname, xcol,
-                              ycol, results_path)
+    fig = lc.LineChart(df, title, xcol, ycol).create_chart()
+    fig.write_html(f"{results_path}/{chartname}.html")
 
     # Save data
     final_file_name = file_name + "_treated.csv"
