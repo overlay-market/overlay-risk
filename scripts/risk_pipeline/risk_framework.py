@@ -5,8 +5,6 @@ import risk.parameters.csv_funding as funding
 import risk.parameters.csv_impact as impact
 import risk.parameters.csv_liquidations as liq
 import risk.parameters.csv_pricedrift as drift
-import risk.overlay.pricing as pricing
-import visualizations.data.viz_data_prep as vdp
 import visualizations.line_chart as lc
 import visualizations.bar_chart as bc
 
@@ -61,7 +59,45 @@ def main(file_name, p, cp, st, lt):
         df_nevs_long, df_nevs_short = funding.main(file_name, p, cp)
     df_deltas, df_ls = impact.main(file_name, p, cp, st)
     df_mms, df_betas = liq.main(file_name, p)
-    _ = drift.main(file_name, p, lt)
+    df_mus = drift.main(file_name, p, lt)
+
+    # Funding recommendation
+    # Anchor time = 45 days (3888000 secs); Confidence = 95%
+    param_k = int(df_ks.loc['n=3888000', 'alpha=0.05'] * 1e18)
+
+    # Spread recommendation
+    # Confidence = 95%
+    param_delta = int(float(df_deltas[df_deltas.alpha == 0.05].delta) * 1e18)
+
+    # Impact recommendation
+    # Confidence = 95%; rolling volume = 10% of cap
+    param_lambda = int(df_ls.loc['alpha=0.05', 'q0=0.01'] * 1e18)
+
+    # Maintenance margin fraction recommendation
+    # Time taken for position to go negative = 4 hours; Confidence = 95%
+    param_mmf = int(df_mms.loc['t=14400', 'alpha=0.05'] * 1e18)
+
+    # Maintenance margin burn rate recommendation
+    # Time taken for position to go negative = 4 hours; Confidence = 95%
+    param_mmb = int(df_betas.loc['t=14400', 'alpha=0.05'] * 1e18)
+
+    # Price drift upper limit recommendation
+    # Confidence = 99.9% since (alpha should be very small as per WP)
+    param_pd = int(float(df_mus[df_mus.alpha == 0.001].mu_max) * 1e18)
+
+    # Print and save parameters
+    parameters = {
+        'k': param_k,
+        'lambda': param_lambda,
+        'delta': param_delta,
+        'maintenanceMarginFraction': param_mmf,
+        'maintenanceMarginBurnRate': param_mmb,
+        'priceDriftUpperLimit': param_pd
+    }
+    print('Recommended parameters: ', parameters)
+
+    with open(f'{results_path}/parameters.txt', 'w') as f:
+        print(parameters, file=f)
 
     # Funding visualizations
     # Funding % Paid Daily for Various Anchor Times
@@ -80,8 +116,6 @@ def main(file_name, p, cp, st, lt):
     bc.SlidingBarChartImpact(df_ls)\
         .create_impact_chart()\
         .write_html(f"{results_path}/Effect of lambda.html")
-    
-    breakpoint()
 
 
 if __name__ == '__main__':
