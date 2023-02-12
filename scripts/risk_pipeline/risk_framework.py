@@ -7,7 +7,7 @@ import risk.parameters.csv_liquidations as liq
 import risk.parameters.csv_pricedrift as drift
 import risk.overlay.pricing as pricing
 import visualizations.data.viz_data_prep as vdp
-import visualizations.charts.charts as vis
+import visualizations.line_chart as lc
 
 
 def get_params():
@@ -53,6 +53,7 @@ def main(file_name, p, cp, st, lt):
     '''
     results_name = file_name.replace('_treated', '')
     helpers.create_dir(results_name)
+    results_path = helpers.get_results_dir()+results_name
 
     # Run risk scripts
     df_ks, df_nvars_long, df_nvars_short, df_ness_long, df_ness_short,\
@@ -63,31 +64,15 @@ def main(file_name, p, cp, st, lt):
 
     # Funding visualizations
     # Funding % Paid Daily for Various Anchor Times
-    df_ks['Days'] = df_ks.index
-    df_ks['Days'] = df_ks['Days'].apply(
-        lambda x: int(x.replace('n=', ''))/86400)
-    df_ks["Percentage of position paid as funding"] =\
-        df_ks['alpha=0.05'] * 2 * 3600 * 24
-    vis.line_chart(
-        df_ks,
-        "Funding % Paid Daily for Various Anchor Times (alpha = 0.05)",
-        "Daily funding per anchor time",
-        "Days", "Percentage of position paid as funding",
-        helpers.get_results_dir()+results_name
-    )
+    lc.LineChartFunding(df_ks)\
+        .create_chart()\
+        .write_html(f"{results_path}/Daily funding per anchor time.html")
 
     # Spread visualizations
     # Percentage difference between bid and ask
-    bid = df_deltas['delta'].apply(lambda x: pricing.bid(100, x, 0, 0))
-    ask = df_deltas['delta'].apply(lambda x: pricing.ask(100, x, 0, 0))
-    df_deltas['spread_perc'] = ask/bid - 1
-    vis.line_chart(
-        df_deltas,
-        "Percentage difference between bid and ask for various alpha",
-        "Spread percentage difference",
-        'alpha', 'spread_perc',
-        helpers.get_results_dir()+results_name
-    )
+    lc.LineChartSpread(df_deltas)\
+        .create_chart()\
+        .write_html(f"{results_path}/Spread percentage difference.html")
 
     # Price impact visualizations
     # Arrange data
