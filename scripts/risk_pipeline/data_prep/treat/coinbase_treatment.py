@@ -2,9 +2,10 @@ import argparse
 import pandas as pd
 import os
 import sys
-from analyse import missing_values
-from treatment import missing_value_treatment, twap
 sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
+from data_prep.treat.analyse import missing_values  # noqa: E402
+from data_prep.treat.treatment import missing_value_treatment  # noqa: E402
+from data_prep.treat.treatment import twap  # noqa: E402
 from helpers import helpers  # noqa: E402
 import visualizations.line_chart as lc  # noqa: E402
 
