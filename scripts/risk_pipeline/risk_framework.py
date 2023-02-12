@@ -8,6 +8,7 @@ import risk.parameters.csv_pricedrift as drift
 import risk.overlay.pricing as pricing
 import visualizations.data.viz_data_prep as vdp
 import visualizations.line_chart as lc
+import visualizations.bar_chart as bc
 
 
 def get_params():
@@ -65,50 +66,22 @@ def main(file_name, p, cp, st, lt):
     # Funding visualizations
     # Funding % Paid Daily for Various Anchor Times
     lc.LineChartFunding(df_ks)\
-        .create_chart()\
+        .create_funding_chart()\
         .write_html(f"{results_path}/Daily funding per anchor time.html")
 
     # Spread visualizations
     # Percentage difference between bid and ask
     lc.LineChartSpread(df_deltas)\
-        .create_chart()\
+        .create_spread_chart()\
         .write_html(f"{results_path}/Spread percentage difference.html")
 
     # Price impact visualizations
-    # Arrange data
-    df_ls_pivot = df_ls.reset_index().melt(
-        id_vars='index', var_name='q0', value_name='value'
-    )
-    df_ls_pivot.columns = ['alpha', 'perc_volume', 'ls']
-
-    # Remove prefixes and make numeric
-    df_ls_pivot = vdp.make_numeric(df_ls_pivot, 'alpha=', 'alpha')
-    df_ls_pivot = vdp.make_numeric(df_ls_pivot, 'q0=', 'perc_volume')
-
-    # Get all volumes against lambdas
-    df_ls_pivot = df_ls_pivot.merge(
-        df_ls_pivot.perc_volume.drop_duplicates(), how='cross')
-
-    # Get bid and ask prices and percentage change from TWAP
-    df_ls_pivot = vdp.bid_ask_perc_change(df_ls_pivot, 'ls', 'perc_volume_y')
-
-    # Group bid and ask for grouped bar plot
-    df_ls_pivot = df_ls_pivot.melt(
-        id_vars=['alpha', 'perc_volume_x', 'ls',
-                 'perc_volume_y', 'bid', 'ask'],
-        var_name='bid_ask',
-        value_name='perc_change'
-    )
-
-    vis.slider_grouped_bar_chart(
-        df_ls_pivot,
-        "Abs percentage change in price due to lambda and volume",
-        helpers.get_results_dir()+results_name,
-        "Price impact",
-        'perc_volume_y', 'perc_change', 'bid_ask', 'ls',
-        'Volume as percentage of cap (over short TWAP)',
-        'Abs percentage change in price'
-    )
+    # Effect of lambda
+    bc.SlidingBarChartImpact(df_ls)\
+        .create_impact_chart()\
+        .write_html(f"{results_path}/Effect of lambda.html")
+    
+    breakpoint()
 
 
 if __name__ == '__main__':

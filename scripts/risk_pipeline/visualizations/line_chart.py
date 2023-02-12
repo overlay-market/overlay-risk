@@ -29,7 +29,7 @@ class LineChartFunding(LineChart):
         self.df = vdp.make_numeric(self.df, 'n=', 'Days')
         self.df['Days'] /= 86400
         self.df["Percentage of position paid as funding"] =\
-            self.df['alpha=0.05'] * 2 * 3600 * 24
+            self.df['alpha=0.05'] * 2 * 3600 * 24 * 100
         fig = self.create_chart()
         return fig
 
@@ -41,9 +41,9 @@ class LineChartSpread(LineChart):
             xcol='alpha', ycol='spread_perc'):
         super().__init__(df, title, xcol, ycol)
 
-    def create_impact_chart(self):
-        bid = self.df['delta'].apply(lambda x: vdp.pricing.bid(100, x, 0, 0))
-        ask = self.df['delta'].apply(lambda x: vdp.pricing.ask(100, x, 0, 0))
+    def create_spread_chart(self):
+        bid = self.df['delta'].apply(lambda x: vdp.bid(100, x, 0, 0))
+        ask = self.df['delta'].apply(lambda x: vdp.ask(100, x, 0, 0))
         self.df['spread_perc'] = (ask/bid - 1) * 100
         fig = self.create_chart()
         return fig
