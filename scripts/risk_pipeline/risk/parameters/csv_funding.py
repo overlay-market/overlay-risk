@@ -16,7 +16,8 @@ ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
 NS = 86400 * np.arange(1, 61)  # 1d, 2d, 3d, ...., 60d
 
 # For plotting normalized var, ev, es
-TS = 3600 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
+# TS = 3600 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
+TS = 3600 * 12 * np.arange(1, 121)  # 12h, 24h, 36h, ...., 60d
 ALPHA = 0.05
 
 
