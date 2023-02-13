@@ -68,11 +68,11 @@ def treatment(file_name, t, tf):
     chartname = f"{file_name}_final"
     xcol = 'time'
     ycol = 'close'
-    fig = lc.LineChart(df, title, xcol, ycol).create_chart()
+    fig = lc.LineChart(df_f, title, xcol, ycol).create_chart()
     fig.write_html(f"{results_path}/{chartname}.html")
 
     # Save data
-    final_file_name = file_name + "_treated.csv"
+    final_file_name = file_name.replace(f'{t}_secs', f'{tf}_secs_treated')
     file_path = os.getcwd() + '/scripts/risk_pipeline/outputs/data/'
     helpers.csv(df_f, file_path + final_file_name)
     return df_f
