@@ -217,7 +217,7 @@ def nexpected_value(a: float, b: float, mu: float, sigma: float,
     return nev_long, nev_short
 
 
-def main(filename, t, cp):
+def get_ks(filename, t, cp):
     """
     Fits input csv timeseries data with pystable and generates output
     csv with funding constant params.
@@ -250,8 +250,6 @@ def main(filename, t, cp):
     )
 
     # calc k (funding constant)
-    g_inv = np.log(1+cp)
-    g_inv_one = np.log(2)
     ks = []
     for n in NS:
         fundings = k(a=dst.contents.alpha, b=dst.contents.beta,
@@ -266,6 +264,17 @@ def main(filename, t, cp):
     )
     print('ks:', df_ks)
     df_ks.to_csv(f"{resultspath}/{resultsname}-ks.csv")
+    return df_ks, dst
+
+
+def main(filename, t, cp):
+    df_ks, dst = get_ks(filename, t, cp)
+
+    resultsname = filename.replace('_treated', '')
+    resultspath = helpers.get_results_dir() + resultsname
+
+    g_inv = np.log(1+cp)
+    g_inv_one = np.log(2)
 
     # For different k values at alpha = 0.05 level (diff n calibs),
     # plot VaR and ES at times into the future

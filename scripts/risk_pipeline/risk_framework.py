@@ -55,8 +55,7 @@ def main(file_name, p, cp, st, lt):
     results_path = helpers.get_results_dir()+results_name
 
     # Run risk scripts
-    df_ks, df_nvars_long, df_nvars_short, df_ness_long, df_ness_short,\
-        df_nevs_long, df_nevs_short = funding.main(file_name, p, cp)
+    df_ks, _ = funding.get_ks(file_name, p, cp)
     df_deltas, df_ls = impact.main(file_name, p, cp, st)
     df_mms, df_betas = liq.main(file_name, p)
     df_mus = drift.main(file_name, p, lt)
@@ -98,6 +97,8 @@ def main(file_name, p, cp, st, lt):
 
     with open(f'{results_path}/parameters.txt', 'w') as f:
         print(parameters, file=f)
+
+    # TODO: Separate above/below and combine them in one file which does both
 
     # Funding visualizations
     # Funding % Paid Daily for Various Anchor Times
