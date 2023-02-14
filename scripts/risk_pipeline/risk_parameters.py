@@ -51,7 +51,7 @@ def main(file_name, p, cp, st, lt):
         cp: Cap pay off applied by governance/risk analyst
         st: Length of short TWAP in secs
         lt: Length of long TWAP in secs
-    
+
     Outputs:
         All dataframes returned by risk scripts
     '''
