@@ -5,8 +5,6 @@ import risk.parameters.csv_funding as funding
 import risk.parameters.csv_impact as impact
 import risk.parameters.csv_liquidations as liq
 import risk.parameters.csv_pricedrift as drift
-import visualizations.line_chart as lc
-import visualizations.bar_chart as bc
 
 
 def get_params():
