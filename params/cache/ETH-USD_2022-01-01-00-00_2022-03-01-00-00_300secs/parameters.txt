@@ -1,0 +1,1 @@
+{'k': 129510012735, 'lambda': 358342023015047552, 'delta': 2118061973123332, 'maintenanceMarginFraction': 36694859340989704, 'maintenanceMarginBurnRate': 57505771708186984, 'priceDriftUpperLimit': 65132582615451}
