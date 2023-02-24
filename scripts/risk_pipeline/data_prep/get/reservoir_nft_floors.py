@@ -78,7 +78,7 @@ def query_data(caddr, start, end):
     df = pd.concat(dfs, ignore_index=True)
 
     price_df = df[['floorAsk.price', 'event.createdAt']]
-    price_df.columns = ['price', 'time']
+    price_df.columns = ['close', 'time']
     price_df.time = pd.to_datetime(price_df.time)
     return price_df
 
