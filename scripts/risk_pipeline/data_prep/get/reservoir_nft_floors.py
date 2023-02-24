@@ -24,3 +24,7 @@ while response_dicts[i]['continuation']:
 
 dfs = [pd.json_normalize(d['events']) for d in response_dicts]
 df = pd.concat(dfs, ignore_index=True)
+
+price_df = df[['floorAsk.price', 'event.createdAt']]
+price_df.columns = ['price', 'time']
+price_df.time = pd.to_datetime(price_df.time)
