@@ -61,7 +61,7 @@ def treatment(file_name, t, tf):
 
     # Get TWAP and convert to desired periodicity
     df_f = twap.twap(df_f, 'time', 'close', tf)
-    df_f = twap.set_periodicity(df, 'time', 'close', tf)
+    df_f = twap.set_periodicity(df_f, 'time', 'close', tf)
 
     # Plot final price data (visualizations)
     title = "Price feed pull from coinbase - Treated"
