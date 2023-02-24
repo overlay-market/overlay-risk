@@ -56,19 +56,37 @@ def treatment(file_name, tf):
     treat_df = df.merge(z_df, on='time').merge(iqm_df, on='time')
 
     # Replace close price with rolling iqm if z score is above threshold
-    treat_df['treat_close'] = np.where(
+    treat_df['close'] = np.where(
         treat_df['z_score'] > 1.5,
         treat_df['rolling_iqm'],
         treat_df['close']
     )
 
     # Plot price after outlier treatment
-    title = "Outliers treated"
+    title = "Price - Outliers treated"
     chartname = f"{file_name}_outliers_treated"
     xcol = 'time'
-    ycol = 'treat_close'
+    ycol = 'close'
     fig = lc.LineChart(treat_df, title, xcol, ycol).create_chart()
     fig.write_html(f"{results_path}/{chartname}.html")
+
+    # Get TWAP and convert to desired periodicity
+    df_f = twap.twap(treat_df, 'time', 'close', tf)
+    df_f = twap.set_periodicity(df_f, 'time', 'close', tf)
+
+    # Plot final price data
+    title = "Price - outliers treated, TWAP, periodic"
+    chartname = f"{file_name}_final"
+    xcol = 'time'
+    ycol = 'close'
+    fig = lc.LineChart(df_f, title, xcol, ycol).create_chart()
+    fig.write_html(f"{results_path}/{chartname}.html")
+
+    # Save data
+    final_file_name = file_name + f'_{tf}_secs_treated'
+    file_path = os.getcwd() + '/scripts/risk_pipeline/outputs/data/'
+    helpers.csv(df_f, file_path + final_file_name)
+    return df_f
 
 
 if __name__ == '__main__':
