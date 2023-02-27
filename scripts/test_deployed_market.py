@@ -39,6 +39,27 @@ def get_latest_from_feed(feed):
     return feed.latest()
 
 
+def get_ois(market, state):
+    return state.ois(market)
+
+
+def approve_all_ovl_to_market(ovl, acc, market):
+    bal = ovl.balanceOf(acc)
+    ovl.approve(market, bal, {'from': acc})
+
+
+def build(market, is_long, acc):
+    price_limit = 2**256-1 if is_long else 0
+    tx = market.build(1e17, 1e18, is_long, price_limit, {'from': acc})
+    pid = tx.events['Build']['positionId']
+    return pid
+
+
+def unwind(market, is_long, pid, acc):
+    price_limit = 0 if is_long else 2**256-1
+    market.unwind(pid, 1e18, price_limit, {'from': acc})
+
+
 def test_static_spread(prices, latest_feed):
     (bid, ask, _) = prices
     (_, _, _, price_micro, price_macro, _, _, _) = latest_feed
@@ -85,6 +106,20 @@ def test_impact(market, state, prices):
     assert expected_bid_w_impact == approx(actual_bid_w_impact, rel=1e4)
 
 
+def test_funding_rate(market, state):
+    k = PARAMS['k']
+    long_oi, short_oi = market.oiLong(), market.oiShort()
+    imb_oi = abs(long_oi - short_oi) * (-1 if short_oi > long_oi else 1)
+    total_oi = long_oi + short_oi
+    actual_funding_rate = state.fundingRate(market)
+
+    if total_oi == 0:
+        assert actual_funding_rate == 0
+    else:
+        expected_funding_rate = 2 * k * imb_oi/total_oi
+        assert expected_funding_rate == actual_funding_rate
+
+
 def main(acc):
     acc = accounts.load(acc)
     market = load_contract(MARKET_ADDR)
@@ -110,5 +145,18 @@ def main(acc):
     test_impact(market, state, prices)
     print('Market impact as expected')
 
-
     # Check funding rate
+    test_funding_rate(market, state)
+    print('Funding rate as expected')
+
+    # Build position and check funding rate
+    approve_all_ovl_to_market(ovl, acc, market)
+    is_long = True
+    pid = build(market, is_long, acc)
+    test_funding_rate(market, state)
+    print('Funding rate after building position as expected')
+
+    # Unwind position and check funding rate
+    unwind(market, is_long, pid, acc)
+    test_funding_rate(market, state)
+    print('Funding rate after unwinding position as expected')
