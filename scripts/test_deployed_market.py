@@ -28,11 +28,31 @@ def load_contract(address):
         return Contract.from_explorer(address)
 
 
+def test_params_equal(market):
+    assert market.params(0) == PARAMS['k']
+    assert market.params(1) == PARAMS['lambda']
+    assert market.params(2) == PARAMS['delta']
+    assert market.params(3) == PARAMS['capPayoff']
+    assert market.params(4) == PARAMS['capNotional']
+    assert market.params(5) == PARAMS['capLeverage']
+    assert market.params(6) == PARAMS['circuitBreakerWindow']
+    assert market.params(7) == PARAMS['circuitBreakerMintTarget']
+    assert market.params(8) == PARAMS['maintenanceMarginFraction']
+    assert market.params(9) == PARAMS['maintenanceMarginBurnRate']
+    assert market.params(10) == PARAMS['liquidationFeeRate']
+    assert market.params(11) == PARAMS['tradingFeeRate']
+    assert market.params(12) == PARAMS['minCollateral']
+    assert market.params(13) == PARAMS['priceDriftUpperLimit']
+
+
+
 def main(acc):
-    acc = accounts.load(acc)
+    # acc = accounts.load(acc)
     market = load_contract(MARKET_ADDR)
     state = load_contract(STATE_ADDR)
     ovl = load_contract(OVL_ADDR)
 
-    print(f'Amount OVL held by testing account: {ovl.balanceOf(acc)/1e18}')
-    
+    # print(f'Amount OVL held by testing account: {ovl.balanceOf(acc)/1e18}')
+    # print(f'Amount ETH held by testing account: {acc.balance()/1e18}')
+
+    test_params_equal(market)
