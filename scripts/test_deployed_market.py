@@ -2,10 +2,10 @@ from brownie import accounts, Contract
 import numpy as np
 from pytest import approx
 
+OVL_ADDR = '0x4305C4Bc521B052F17d389c2Fe9d37caBeB70d54'
 STATE_ADDR = '0xC3cB99652111e7828f38544E3e94c714D8F9a51a'
 MARKET_ADDR = '0xa811698d855153cc7472D1FB356149a94bD618e7'
 FEED_ADDR = '0xfa261b7c48a7426e00385f2435963005a7675df3'
-OVL_ADDR = '0x4305C4Bc521B052F17d389c2Fe9d37caBeB70d54'
 PARAMS = {
     'k': 214443204786,
     'lambda': 725673770858147328,
@@ -40,7 +40,7 @@ def get_latest_from_feed(feed):
 
 
 def test_static_spread(prices, latest_feed):
-    (bid, ask, mid) = prices
+    (bid, ask, _) = prices
     (_, _, _, price_micro, price_macro, _, _, _) = latest_feed
     expect_bid = int(
         min(price_micro, price_macro) * np.exp(-PARAMS['delta']/1e18)
@@ -69,6 +69,22 @@ def test_params_equal(market):
     assert market.params(13) == PARAMS['priceDriftUpperLimit']
 
 
+def test_impact(market, state, prices):
+    lmbd = PARAMS['lambda']
+    (bid, ask, mid) = prices
+    oi = (10e18/mid) * 1e18  # Test with position of notional size 10 OVL
+    frac_oi = state.fractionOfCapOi(market, oi)
+    vol_ask = state.volumeAsk(market, frac_oi)
+    actual_ask_w_impact = state.ask(market, frac_oi)
+    expected_ask_w_impact = int(ask * np.exp((lmbd/1e18) * (vol_ask/1e18)))
+    assert expected_ask_w_impact == approx(actual_ask_w_impact, rel=1e4)
+
+    vol_bid = state.volumeBid(market, frac_oi)
+    actual_bid_w_impact = state.bid(market, frac_oi)
+    expected_bid_w_impact = int(bid * np.exp((lmbd/1e18) * (vol_bid/1e18)))
+    assert expected_bid_w_impact == approx(actual_bid_w_impact, rel=1e4)
+
+
 def main(acc):
     acc = accounts.load(acc)
     market = load_contract(MARKET_ADDR)
@@ -84,11 +100,15 @@ def main(acc):
 
     # Check if parameters input was correct while deploying contract
     test_params_equal(market)
-    print('On-chain risk parameters are the same as expected')
+    print('On-chain risk parameters as expected')
 
     # Check bid-ask static spread (delta)
     test_static_spread(prices, latest_feed)
     print('Static spread as expected')
 
-    # Check impact
+    # Check impact (lambda)
+    test_impact(market, state, prices)
+    print('Market impact as expected')
+
+
     # Check funding rate
