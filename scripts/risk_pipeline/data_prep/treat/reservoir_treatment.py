@@ -94,7 +94,7 @@ def treatment(file_name, tf):
     fig.write_html(f"{results_path}/{chartname}.html")
 
     # Save data
-    final_file_name = file_name + f'_{tf}_secs_treated'
+    final_file_name = file_name + f'_{tf}_secs_treated.csv'
     file_path = os.getcwd() + '/scripts/risk_pipeline/outputs/data/'
     helpers.csv(f_df, file_path + final_file_name)
     return f_df
