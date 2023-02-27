@@ -5,6 +5,7 @@ import os
 import sys
 sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
 from data_prep.treat.analyse import outliers  # noqa: E402
+from data_prep.treat.analyse import missing_values  # noqa: E402
 from data_prep.treat.treatment import missing_value_treatment  # noqa: E402
 from data_prep.treat.treatment import twap  # noqa: E402
 from helpers import helpers  # noqa: E402
@@ -50,14 +51,15 @@ def treatment(file_name, tf):
     fig.write_html(f"{results_path}/{chartname}.html")
 
     # Get z scores to treat outliers
-    window = 86400*5
+    window = 86400*10
     z_df = outliers.z_score(df, window)
     iqm_df = outliers.interquartile_mean(df, window)
     treat_df = df.merge(z_df, on='time').merge(iqm_df, on='time')
 
     # Replace close price with rolling iqm if z score is above threshold
+    z_thresh = 1.5
     treat_df['close'] = np.where(
-        treat_df['z_score'] > 1.5,
+        treat_df['z_score'] > z_thresh,
         treat_df['rolling_iqm'],
         treat_df['close']
     )
@@ -71,22 +73,31 @@ def treatment(file_name, tf):
     fig.write_html(f"{results_path}/{chartname}.html")
 
     # Get TWAP and convert to desired periodicity
-    df_f = twap.twap(treat_df, 'time', 'close', tf)
-    df_f = twap.set_periodicity(df_f, 'time', 'close', tf)
+    twap_df = twap.twap(treat_df, 'time', 'close', tf)
+    twap_df = twap.set_periodicity(twap_df, 'time', 'close', tf)
+
+    # Nulls likely generated during `set_periodicity`.
+    # These are not neccessarily "missing values". But worth checking.
+    m_df, null_report = missing_values.missing_candlesticks(
+        twap_df, tf, 'time', 'close')
+    null_report.to_csv(f"{results_path}/{file_name}_missing_values.csv")
+
+    # Treat missing values
+    f_df = missing_value_treatment.forward_fill(m_df, 'close')
 
     # Plot final price data
     title = "Price - outliers treated, TWAP, periodic"
     chartname = f"{file_name}_final"
     xcol = 'time'
     ycol = 'close'
-    fig = lc.LineChart(df_f, title, xcol, ycol).create_chart()
+    fig = lc.LineChart(f_df, title, xcol, ycol).create_chart()
     fig.write_html(f"{results_path}/{chartname}.html")
 
     # Save data
     final_file_name = file_name + f'_{tf}_secs_treated'
     file_path = os.getcwd() + '/scripts/risk_pipeline/outputs/data/'
-    helpers.csv(df_f, file_path + final_file_name)
-    return df_f
+    helpers.csv(f_df, file_path + final_file_name)
+    return f_df
 
 
 if __name__ == '__main__':

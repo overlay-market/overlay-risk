@@ -12,7 +12,7 @@ def twap(df, time_col, price_col, tf):
 def set_periodicity(df, time_col, price_col, tf):
     df.index = df[time_col]
     df = df[[price_col]]
-    final_df = df.resample(f"{tf}S").ohlc()
-    final_df = final_df[price_col][[price_col]]
-    final_df.reset_index(inplace=True)
-    return final_df
+    df = df.resample(f"{tf}S").ohlc()
+    df = df[price_col][[price_col]]
+    df.reset_index(inplace=True)
+    return df
