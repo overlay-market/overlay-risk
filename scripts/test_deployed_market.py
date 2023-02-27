@@ -76,15 +76,19 @@ def main(acc):
     state = load_contract(STATE_ADDR)
     ovl = load_contract(OVL_ADDR)
 
+    prices = get_prices(market, state)
+    latest_feed = get_latest_from_feed(feed)
+
     print(f'Amount OVL held by testing account: {ovl.balanceOf(acc)/1e18}')
     print(f'Amount ETH held by testing account: {acc.balance()/1e18}')
 
+    # Check if parameters input was correct while deploying contract
     test_params_equal(market)
     print('On-chain risk parameters are the same as expected')
 
-    prices = get_prices(market, state)
-
-    latest_feed = get_latest_from_feed(feed)
-
+    # Check bid-ask static spread (delta)
     test_static_spread(prices, latest_feed)
     print('Static spread as expected')
+
+    # Check impact
+    # Check funding rate
