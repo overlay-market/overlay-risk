@@ -14,7 +14,7 @@ def epoch_time(ts_string):
     time_struct = time.strptime(ts_string, "%Y-%m-%d-%H-%M")
 
     # Convert the time struct to Unix time and return
-    return time.mktime(time_struct)
+    return int(time.mktime(time_struct))
 
 
 def get_params():
@@ -76,11 +76,26 @@ def query_data(caddr, start, end):
     # Arrange data in pandas df
     dfs = [pd.json_normalize(d['events']) for d in response_dicts]
     df = pd.concat(dfs, ignore_index=True)
-
+    # TODO: Catch when no data is returned
     price_df = df[['floorAsk.price', 'event.createdAt']]
     price_df.columns = ['close', 'time']
     price_df.time = pd.to_datetime(price_df.time)
     return price_df
+
+
+def get_ranges(start, end):
+    step = 120 * 86400  # 120 days
+    if end - start < step:
+        return [(start, end)]
+    else:
+        steps = list(range(start, end, step))
+        if steps[-1] != end:
+            steps.append(end)  # Append last timestamp if `range` left it out
+        time_range = []
+        for i in range(len(steps)-1):
+            time_range.append((steps[i]+1, steps[i+1]))
+        time_range.reverse()
+        return time_range
 
 
 def get_data(caddr, cname, start, end):
@@ -91,9 +106,14 @@ def get_data(caddr, cname, start, end):
         print(f"Data {file_name} already exists")
         return pd.read_csv(full_path), full_path
     else:
-        df = query_data(caddr, start, end)
-        helpers.csv(df, full_path)
-        return df, full_path
+        time_ranges = get_ranges(start, end)
+        for i, v in enumerate(time_ranges):
+            df = query_data(caddr, v[0], v[1])
+            if i == 0:
+                helpers.csv(df, full_path)
+            else:
+                helpers.append_csv(df, full_path)
+        return full_path
 
 
 if __name__ == '__main__':
