@@ -73,7 +73,12 @@ def treatment(file_name, tf):
     fig.write_html(f"{results_path}/{chartname}.html")
 
     # Get TWAP and convert to desired periodicity
-    twap_df = twap.twap(treat_df, 'time', 'close', tf)
+    # Start by setting to a small periodicity so data is evenly spaced
+    twap_df = twap.set_periodicity(treat_df, 'time', 'close', 60)
+    # Now take TWAP. `twap` function just takes a rolling avg so helpful to
+    # have even spaced data
+    twap_df = twap.twap(twap_df, 'time', 'close', tf)
+    # Set the data to desired final periodicity
     twap_df = twap.set_periodicity(twap_df, 'time', 'close', tf)
 
     # Nulls likely generated during `set_periodicity`.
