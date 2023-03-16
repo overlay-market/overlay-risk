@@ -30,7 +30,7 @@ def get_params():
 
 def treatment(file_name, tf):
     '''
-    Convert NFT floor price data from Coinbase algo to desired periodicity
+    Convert input price data to desired periodicity
     '''
 
     file_path = os.getcwd() + '/scripts/risk_pipeline/outputs/data/'
