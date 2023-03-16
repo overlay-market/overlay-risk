@@ -80,15 +80,16 @@ def query_data(caddr, start, end):
     dfs = [pd.json_normalize(d['sales']) for d in response_dicts]
     df = pd.concat(dfs, ignore_index=True)
     # TODO: Catch when no data is returned
-    price_df = df[['price.currency.name', 'price.netAmount.native',
-                   'timestamp', 'token.contract']]
-    price_df.columns = ['currency', 'price', 'time', 'collection']
+    price_df = df[['price.currency.name', 'price.amount.decimal',
+                   'timestamp', 'token.contract', 'block']]
+    price_df.columns = ['currency', 'price', 'time',
+                        'collection', 'block_number']
     price_df.time = pd.to_datetime(price_df.time, unit='s')
     return price_df
 
 
 def get_ranges(start, end):
-    step = 120 * 86400  # 120 days
+    step = 30 * 86400  # 120 days
     if end - start < step:
         return [(start, end)]
     else:
