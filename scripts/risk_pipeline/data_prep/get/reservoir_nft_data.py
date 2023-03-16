@@ -7,7 +7,8 @@ import sys
 sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
 from helpers import helpers  # noqa: E402
 
-URL = "https://api.reservoir.tools/sales/v4"
+FLOORS = "https://api.reservoir.tools/events/collections/floor-ask/v1"
+SALES = "https://api.reservoir.tools/sales/v4"
 
 
 def epoch_time(ts_string):
@@ -40,16 +41,21 @@ def get_params():
         '--end_time', type=str,
         help='End time for data pull. Ex: 2016-06-01-00-00'
     )
+    parser.add_argument(
+        '--type', type=str,
+        help='sales or floors. Ex: sales'
+    )
 
     args = parser.parse_args()
     start_time = epoch_time(args.start_time)
     end_time = epoch_time(args.end_time)
 
-    return args.collection_addr, args.collection_name, start_time, end_time
+    return (args.collection_addr, args.collection_name,
+            start_time, end_time, args.type)
 
 
-def get_file_name(cname, start, end):
-    return f"{cname}_{start}_{end}.csv"
+def get_file_name(cname, start, end, type):
+    return f"{cname}_{type}_{start}_{end}.csv"
 
 
 def query_data(caddr, start, end):
@@ -63,13 +69,17 @@ def query_data(caddr, start, end):
     }
 
     # Pull data
-    response = requests.get(URL, params)
+    if type == 'sales':
+        url = SALES
+    elif type == 'floors':
+        url = FLOORS
+    response = requests.get(url, params)
     response_dicts = [response.json()]
     i = 0
     while response_dicts[i]['continuation']:
         print(i)
         params['continuation'] = response_dicts[0]['continuation']
-        response = requests.get(URL, params)
+        response = requests.get(url, params)
         response_dicts.append(response.json())
         if response_dicts[-1] == response_dicts[-2]:
             response_dicts = response_dicts[:-1]
@@ -77,19 +87,27 @@ def query_data(caddr, start, end):
         i += 1
 
     # Arrange data in pandas df
-    dfs = [pd.json_normalize(d['sales']) for d in response_dicts]
-    df = pd.concat(dfs, ignore_index=True)
-    # TODO: Catch when no data is returned
-    price_df = df[['price.currency.name', 'price.amount.decimal',
-                   'timestamp', 'token.contract', 'block']]
-    price_df.columns = ['currency', 'price', 'time',
-                        'collection', 'block_number']
-    price_df.time = pd.to_datetime(price_df.time, unit='s')
+    if type == 'sales':
+        dfs = [pd.json_normalize(d['sales']) for d in response_dicts]
+        df = pd.concat(dfs, ignore_index=True)
+        # TODO: Catch when no data is returned
+        price_df = df[['price.currency.name', 'price.amount.decimal',
+                       'timestamp', 'token.contract', 'block']]
+        price_df.columns = ['currency', 'price', 'time',
+                            'collection', 'block_number']
+        price_df.time = pd.to_datetime(price_df.time, unit='s')
+    elif type == 'floors':
+        dfs = [pd.json_normalize(d['events']) for d in response_dicts]
+        df = pd.concat(dfs, ignore_index=True)
+        # TODO: Catch when no data is returned
+        price_df = df[['floorAsk.price', 'event.createdAt']]
+        price_df.columns = ['close', 'time']
+        price_df.time = pd.to_datetime(price_df.time)
     return price_df
 
 
 def get_ranges(start, end):
-    step = 30 * 86400  # 120 days
+    step = 30 * 86400  # Number of days
     if end - start < step:
         return [(start, end)]
     else:
@@ -103,8 +121,8 @@ def get_ranges(start, end):
         return time_range
 
 
-def get_data(caddr, cname, start, end):
-    file_name = get_file_name(cname, start, end)
+def get_data(caddr, cname, start, end, type):
+    file_name = get_file_name(cname, start, end, type)
     file_path = os.getcwd() + '/scripts/risk_pipeline/outputs/data/'
     full_path = file_path + file_name
     if helpers.file_exists(full_path):
@@ -124,8 +142,8 @@ def get_data(caddr, cname, start, end):
 if __name__ == '__main__':
     root_dir = 'overlay-risk'
     if os.path.basename(os.getcwd()) == root_dir:
-        caddr, cname, start, end = get_params()
-        get_data(caddr, cname, start, end)
+        caddr, cname, start, end, type = get_params()
+        get_data(caddr, cname, start, end, type)
     else:
         print("Run failed")
         print(f"Run this script from the root directory: {root_dir}")
