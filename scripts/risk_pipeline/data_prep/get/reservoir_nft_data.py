@@ -58,7 +58,7 @@ def get_file_name(cname, start, end, type):
     return f"{cname}_{type}_{start}_{end}.csv"
 
 
-def query_data(caddr, start, end):
+def query_data(caddr, start, end, type):
 
     # Set query parameters
     params = {
@@ -127,11 +127,11 @@ def get_data(caddr, cname, start, end, type):
     full_path = file_path + file_name
     if helpers.file_exists(full_path):
         print(f"Data {file_name} already exists")
-        return pd.read_csv(full_path), full_path
+        return full_path
     else:
         time_ranges = get_ranges(start, end)
         for i, v in enumerate(time_ranges):
-            df = query_data(caddr, v[0], v[1])
+            df = query_data(caddr, v[0], v[1], type)
             if i == 0:
                 helpers.csv(df, full_path)
             else:
