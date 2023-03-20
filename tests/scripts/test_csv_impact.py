@@ -3,7 +3,7 @@ import os
 import pystable
 import numpy as np
 import numpy.testing as np_testing
-from scripts import csv_impact as cimpact
+from scripts.risk_pipeline.risk.parameters import csv_impact as cimpact
 import unittest
 
 

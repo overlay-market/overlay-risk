@@ -2,16 +2,37 @@ import pystable
 import pandas as pd
 import numpy as np
 from scipy import integrate
+import argparse
+import os
+import sys
 
+sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
+from helpers import helpers  # noqa
 
-FILENAME = "ETHUSD-600-20210401-20210630"
-FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-T = 600  # 10m candle size on datafile
 TS = 3600 * np.arange(1, 721)  # 1h, 2h, 3h, ...., 30d
 
 # uncertainties
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
 ALPHA = 0.05
+
+
+def get_params():
+    """
+    Get parameters from command line
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--filename', type=str,
+        help='Name of the input data file'
+    )
+    parser.add_argument(
+        '--periodicity', type=int,
+        help='Cadence of input data'
+    )
+
+    args = parser.parse_args()
+    return args.filename, args.periodicity
 
 
 def gaussian():
@@ -119,14 +140,17 @@ def beta(a: float, b: float, mu: float, sig: float,
     return np.maximum(beta_l, beta_s)
 
 
-def main():
+def main(filename, t):
     """
     Fits input csv timeseries data with pystable and generates output
     csv with market impact static spread + slippage params.
     """
-    print(f'Analyzing file {FILENAME}')
-    df = pd.read_csv(FILEPATH)
-    p = df['c'].to_numpy() if 'c' in df else df['twap']
+    filepath = f"scripts/risk_pipeline/outputs/data/{filename}.csv"  # datafile
+    resultsname = filename.replace('_treated', '')
+    resultspath = helpers.get_results_dir() + resultsname
+    print(f'Analyzing file {filename}')
+    df = pd.read_csv(filepath)
+    p = df['close'].to_numpy() if 'close' in df else df['twap']
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from
@@ -138,10 +162,10 @@ def main():
         '''
     )
 
-    dst = rescale(dst, 1/T)
+    dst = rescale(dst, 1/t)
     print(
         f'''
-        rescaled params (1/T = {1/T}):
+        rescaled params (1/t = {1/t}):
         alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
         mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
         '''
@@ -160,12 +184,14 @@ def main():
                           columns=[f'alpha={a}' for a in ALPHAS],
                           index=[f't={t}' for t in TS])
     print('MMs:', df_mms)
-    df_mms.to_csv(f"csv/metrics/{FILENAME}-mms.csv")
+    df_mms.to_csv(f"{resultspath}/{resultsname}-mms.csv")
 
     # Calibrate betas
     betas = []
     for i in range(len(df_mms)):
-        print(f'{np.round((i/len(df_mms)) * 100, 2)}% complete', end="\r")
+        print(
+            f'Calibrating betas: {np.round((i/len(df_mms))*100,2)}% complete',
+            end="\r")
         betas.append(
             beta(dst.contents.alpha, dst.contents.beta,
                  dst.contents.mu_1, dst.contents.sigma,
@@ -180,8 +206,15 @@ def main():
                     )
     # Beta is NaN when MM > 1. Drop those rows.
     df_betas.dropna(inplace=True)
-    df_betas.to_csv(f"csv/metrics/{FILENAME}-betas.csv")
+    df_betas.to_csv(f"{resultspath}/{resultsname}-betas.csv")
+    return df_mms, df_betas
 
 
 if __name__ == '__main__':
-    main()
+    root_dir = 'overlay-risk'
+    if os.path.basename(os.getcwd()) == root_dir:
+        filename, t = get_params()
+        main(filename, t)
+    else:
+        print("Run failed")
+        print(f"Run this script from the root directory: {root_dir}")

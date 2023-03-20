@@ -1,14 +1,14 @@
 import pystable
 import pandas as pd
 import numpy as np
+import os
+import sys
 
 from scipy import integrate
+import argparse
 
-
-FILENAME = "ETHUSD-600-20210401-20210630"
-FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-T = 600  # 10m candle size on datafile (in blocks)
-CP = 10  # 10x payoff cap
+sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
+from helpers import helpers  # noqa
 
 # uncertainties
 ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
@@ -16,8 +16,32 @@ ALPHAS = np.array([0.01, 0.025, 0.05, 0.075, 0.1])
 NS = 86400 * np.arange(1, 61)  # 1d, 2d, 3d, ...., 60d
 
 # For plotting normalized var, ev, es
-TS = 3600 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
+# TS = 3600 * np.arange(1, 1441)  # 1h, 2h, 3h, ...., 60d
+TS = 3600 * 12 * np.arange(1, 121)  # 12h, 24h, 36h, ...., 60d
 ALPHA = 0.05
+
+
+def get_params():
+    """
+    Get parameters from command line
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--filename', type=str,
+        help='Name of the input data file'
+    )
+    parser.add_argument(
+        '--periodicity', type=int,
+        help='Cadence of input data'
+    )
+    parser.add_argument(
+        '--payoffcap', type=int,
+        help='Cap on pay off chosen by governance'
+    )
+
+    args = parser.parse_args()
+    return args.filename, args.periodicity, args.payoffcap
 
 
 def gaussian():
@@ -193,14 +217,17 @@ def nexpected_value(a: float, b: float, mu: float, sigma: float,
     return nev_long, nev_short
 
 
-def main():
+def get_ks(filename, t, cp):
     """
     Fits input csv timeseries data with pystable and generates output
     csv with funding constant params.
     """
-    print(f'Analyzing file {FILENAME}')
-    df = pd.read_csv(FILEPATH)
-    p = df['c'].to_numpy() if 'c' in df else df['twap']
+    filepath = f"scripts/risk_pipeline/outputs/data/{filename}.csv"  # datafile
+    resultsname = filename.replace('_treated', '')
+    resultspath = helpers.get_results_dir() + resultsname
+    print(f'Analyzing file {filename}')
+    df = pd.read_csv(filepath)
+    p = df['close'].to_numpy() if 'close' in df else df['twap']
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from
@@ -213,18 +240,16 @@ def main():
     )
 
     # rescale to per second distribution
-    dst = rescale(dst, 1/T)
+    dst = rescale(dst, 1/t)
     print(
         f'''
-        rescaled params (1/T = {1/T}):
+        rescaled params (1/t = {1/t}):
         alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
         mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
         '''
     )
 
     # calc k (funding constant)
-    g_inv = np.log(1+CP)
-    g_inv_one = np.log(2)
     ks = []
     for n in NS:
         fundings = k(a=dst.contents.alpha, b=dst.contents.beta,
@@ -238,7 +263,18 @@ def main():
         index=[f"n={n}" for n in NS]
     )
     print('ks:', df_ks)
-    df_ks.to_csv(f"csv/metrics/{FILENAME}-ks.csv")
+    df_ks.to_csv(f"{resultspath}/{resultsname}-ks.csv")
+    return df_ks, dst
+
+
+def main(filename, t, cp):
+    df_ks, dst = get_ks(filename, t, cp)
+
+    resultsname = filename.replace('_treated', '')
+    resultspath = helpers.get_results_dir() + resultsname
+
+    g_inv = np.log(1+cp)
+    g_inv_one = np.log(2)
 
     # For different k values at alpha = 0.05 level (diff n calibs),
     # plot VaR and ES at times into the future
@@ -272,7 +308,7 @@ def main():
                 nexpected_shortfall(
                     a=dst.contents.alpha, b=dst.contents.beta,
                     mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                    k_n=k_n, g_inv=g_inv, cp=CP, alpha=ALPHA, t=t)
+                    k_n=k_n, g_inv=g_inv, cp=cp, alpha=ALPHA, t=t)
             ness_t_long.append(nes_long)
             ness_t_short.append(nes_short)
 
@@ -281,7 +317,7 @@ def main():
                 nexpected_value(
                     a=dst.contents.alpha, b=dst.contents.beta,
                     mu=dst.contents.mu_1, sigma=dst.contents.sigma,
-                    k_n=k_n, g_inv_long=g_inv, cp=CP,
+                    k_n=k_n, g_inv_long=g_inv, cp=cp,
                     g_inv_short=g_inv_one, t=t)
             nevs_t_long.append(nev_long)
             nevs_t_short.append(nev_short)
@@ -316,11 +352,11 @@ def main():
     )
     print(f'nvars long (alpha={ALPHA}):', df_nvars_long)
     df_nvars_long.to_csv(
-        f"csv/metrics/{FILENAME}-nvars-long-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-nvars-long-alpha-{ALPHA}.csv")
 
     print(f'nvars short (alpha={ALPHA}):', df_nvars_short)
     df_nvars_short.to_csv(
-        f"csv/metrics/{FILENAME}-nvars-short-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-nvars-short-alpha-{ALPHA}.csv")
 
     # Expected shortfall dataframe to csv
     df_ness_long = pd.DataFrame(
@@ -335,11 +371,12 @@ def main():
     )
     print(f'ness long (alpha={ALPHA}):', df_ness_long)
     df_ness_long.to_csv(
-        f"csv/metrics/{FILENAME}-ness-long-conditional-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-ness-long-conditional-alpha-{ALPHA}.csv")
 
     print(f'ness short (alpha={ALPHA}):', df_ness_short)
     df_ness_short.to_csv(
-        f"csv/metrics/{FILENAME}-ness-short-conditional-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}"
+        f"-ness-short-conditional-alpha-{ALPHA}.csv")
 
     # Expected value dataframe to csv
     df_nevs_long = pd.DataFrame(
@@ -354,12 +391,21 @@ def main():
     )
     print(f'nevs long (alpha={ALPHA}):', df_nevs_long)
     df_nevs_long.to_csv(
-        f"csv/metrics/{FILENAME}-nevs-long-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-nevs-long-alpha-{ALPHA}.csv")
 
     print(f'nevs short (alpha={ALPHA}):', df_nevs_short)
     df_nevs_short.to_csv(
-        f"csv/metrics/{FILENAME}-nevs-short-alpha-{ALPHA}.csv")
+        f"{resultspath}/{resultsname}-nevs-short-alpha-{ALPHA}.csv")
+
+    return df_ks, df_nvars_long, df_nvars_short, df_ness_long, df_ness_short,\
+        df_nevs_long, df_nevs_short
 
 
 if __name__ == '__main__':
-    main()
+    root_dir = 'overlay-risk'
+    if os.path.basename(os.getcwd()) == root_dir:
+        filename, t, cp = get_params()
+        main(filename, t, cp)
+    else:
+        print("Run failed")
+        print(f"Run this script from the root directory: {root_dir}")

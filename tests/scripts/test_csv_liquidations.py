@@ -3,7 +3,7 @@ import pystable
 import os
 import numpy as np
 import numpy.testing as np_testing
-from scripts import csv_liquidations as cliq
+from scripts.risk_pipeline.risk.parameters import csv_liquidations as cliq
 import unittest
 
 

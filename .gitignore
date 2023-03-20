@@ -17,3 +17,4 @@ my_files
 .DS_Store
 .env
 notes.txt
+scripts/risk_pipeline/outputs/

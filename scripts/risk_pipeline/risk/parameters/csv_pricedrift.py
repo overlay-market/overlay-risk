@@ -1,15 +1,38 @@
 import pystable
 import pandas as pd
 import numpy as np
+import argparse
+import os
+import sys
 
-
-FILENAME = "ETHUSD-600-20210401-20210630"
-FILEPATH = f"csv/{FILENAME}.csv"  # datafile
-T = 600  # 10m candle size on datafile
-V = 3600  # 60m longer TWAP
+sys.path.insert(0, os.getcwd()+'/scripts/risk_pipeline')
+from helpers import helpers  # noqa
 
 # uncertainties
 ALPHAS = np.array([0.001, 0.01, 0.025, 0.05, 0.075, 0.1])
+
+
+def get_params():
+    """
+    Get parameters from command line
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--filename', type=str,
+        help='Name of the input data file'
+    )
+    parser.add_argument(
+        '--periodicity', type=int,
+        help='Cadence of input data'
+    )
+    parser.add_argument(
+        '--long_twap', type=int,
+        help='Longer TWAP'
+    )
+
+    args = parser.parse_args()
+    return args.filename, args.periodicity, args.long_twap
 
 
 def gaussian():
@@ -82,14 +105,17 @@ def mu_max(a: float, b: float, mu: float, sig: float,
     return np.maximum(m_l, m_s)
 
 
-def main():
+def main(filename, t, v):
     """
     Fits input csv timeseries data with pystable and generates output
     csv with market impact static spread + slippage params.
     """
-    print(f'Analyzing file {FILENAME}')
-    df = pd.read_csv(FILEPATH)
-    p = df['c'].to_numpy() if 'c' in df else df['twap']
+    filepath = f"scripts/risk_pipeline/outputs/data/{filename}.csv"  # datafile
+    resultsname = filename.replace('_treated', '')
+    resultspath = helpers.get_results_dir() + resultsname
+    print(f'Analyzing file {filename}')
+    df = pd.read_csv(filepath)
+    p = df['close'].to_numpy() if 'close' in df else df['twap']
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from
@@ -101,10 +127,10 @@ def main():
         '''
     )
 
-    dst = rescale(dst, 1/T)
+    dst = rescale(dst, 1/t)
     print(
         f'''
-        rescaled params (1/T = {1/T}):
+        rescaled params (1/t = {1/t}):
         alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
         mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
         '''
@@ -112,12 +138,19 @@ def main():
 
     # calc mu_maxs
     mus = mu_max(dst.contents.alpha, dst.contents.beta,
-                 dst.contents.mu_1, dst.contents.sigma, V, ALPHAS)
+                 dst.contents.mu_1, dst.contents.sigma, v, ALPHAS)
     df_mus = pd.DataFrame(data=[ALPHAS, mus]).T
     df_mus.columns = ['alpha', 'mu_max']
     print('mu_maxs:', df_mus)
-    df_mus.to_csv(f"csv/metrics/{FILENAME}-mu_maxs.csv", index=False)
+    df_mus.to_csv(f"{resultspath}/{resultsname}-mu_maxs.csv", index=False)
+    return df_mus
 
 
 if __name__ == '__main__':
-    main()
+    root_dir = 'overlay-risk'
+    if os.path.basename(os.getcwd()) == root_dir:
+        filename, t, lt = get_params()
+        main(filename, t, lt)
+    else:
+        print("Run failed")
+        print(f"Run this script from the root directory: {root_dir}")

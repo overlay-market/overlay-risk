@@ -20,11 +20,16 @@ def get_params() -> str:
         help='Refer: https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases'  # noqa
     )
 
+    parser.add_argument(
+        '--timestamp_column', type=str,
+        help='Name of column with timestamp in data file'
+    )
     args = parser.parse_args()
 
     return {
         "source": args.source,
-        "periodicity": args.periodicity
+        "periodicity": args.periodicity,
+        "timestamp_column": args.timestamp_column
     }
 
 
@@ -39,9 +44,8 @@ def main():
     file_path = fl + p['source']
 
     df = pd.read_csv(file_path)
-    df['evt_block_time'] = pd.to_datetime(df['evt_block_time'])
-    df.set_index('evt_block_time', inplace=True)
-
+    df[p['timestamp_column']] = pd.to_datetime(df[p['timestamp_column']])
+    df.set_index(p['timestamp_column'], inplace=True)
     df = df.resample(p['periodicity']).mean()
     df.ffill(inplace=True)
 

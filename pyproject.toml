@@ -18,6 +18,8 @@ scipy = "1.8.1"
 jupyter = "^1.0.0"
 matplotlib = "^3.5.2"
 Historic-Crypto = "^0.1.6"
+plotly = "^5.13.0"
+kaleido = "0.2.0"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.2"
