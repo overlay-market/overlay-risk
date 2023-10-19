@@ -31,3 +31,9 @@ def main(pool_addr, lb=LB, ub=UB):
     ub = int(ub)
     # Load feed contract
     feed = load_contract(pool_addr)
+
+    feed.events.get_sequence(
+                event_type='SubmissionReceived',
+                from_block=LB,
+                to_block=UB
+        )
