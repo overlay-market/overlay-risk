@@ -32,8 +32,11 @@ def main(pool_addr, lb=LB, ub=UB):
     # Load feed contract
     feed = load_contract(pool_addr)
 
+    pool_events_l = []
     feed.events.get_sequence(
                 event_type='SubmissionReceived',
                 from_block=LB,
                 to_block=UB
         )
+    # Flatten in pool_events_l
+    pool_events = list(itertools.chain.from_iterable(pool_events_l))
