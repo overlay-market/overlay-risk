@@ -5,6 +5,7 @@ import itertools
 import pandas as pd
 import numpy as np
 import json
+import time
 
 
 FEED_NAME = 'CSGO'
@@ -45,6 +46,7 @@ def get_args_df(event_list):
 
 
 def get_block_timestamp(b):
+    time.sleep(0.1)
     return web3.eth.get_block(b).timestamp
 
 
@@ -88,7 +90,7 @@ def main(pool_addr, lb=LB, ub=UB):
     df = get_event_df(pool_events)
 
     # Add timestamps to every nth block
-    step = 1
+    step = 5
     block_numbers_to_fetch = [b if i % step == 0 else None for i, b in enumerate(df['blockNumber'])]
     block_numbers_to_fetch = [b for b in block_numbers_to_fetch if b is not None]
     timestamps = get_timestamps(block_numbers_to_fetch)
