@@ -62,9 +62,13 @@ Get coinbase data and treat it:
 python scripts/risk_pipeline/data_prep/coinbase_data_prep.py --pair ETH-USD --pull_periodicity 300 --final_periodicity 600 --start_time 2022-01-01-00-00 --end_time 2022-03-01-00-00
 ```
 Get risk parameters:
-Data should be stored in CSV format within `scripts/risk_pipeline/outputs/data/<dataname.csv>` and the column for the feed should be named "close" or "twap". Then run
+Data should be stored in CSV format within `scripts/risk_pipeline/outputs/data/<dataname.csv>` and the column for the feed should be named "close" or "twap". To get risk parameters for a given data set, run
 ```
 python scripts/risk_pipeline/risk_parameters.py --filename dataname --periodicity 600 --payoffcap 10 --short_twap 600 --long_twap 3600
+```
+To get risk parameters for a given data set and visualisations, run
+```
+python scripts/risk_pipeline/risk_pipeline.py --filename dataname --periodicity 600 --payoffcap 10 --short_twap 600 --long_twap 3600
 ```
 
 

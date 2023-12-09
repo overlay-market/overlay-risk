@@ -9,6 +9,14 @@ def ask(min_twap, delta, lmb, vol):
     return min_twap * np.exp(delta + (lmb*vol))
 
 
+def funding_per_sec(k):
+    return 2*k
+
+
+def price_drift_allowed(mu, longer_twap_window):
+    return np.exp(mu * longer_twap_window) - 1
+
+
 def make_numeric(df, pre, col):
     df[col] = df[col].apply(lambda x: float(x.replace(pre, '')))
     return df

@@ -1,34 +1,46 @@
 from brownie import accounts, Contract
 import numpy as np
+import json
 from pytest import approx
 
-OVL_ADDR = '0x4305C4Bc521B052F17d389c2Fe9d37caBeB70d54'
-STATE_ADDR = '0xC3cB99652111e7828f38544E3e94c714D8F9a51a'
-MARKET_ADDR = '0x1067B7DF86552A53D816CE3fed50d6D01310b48f'
-FEED_ADDR = '0x6C4296156875dAb08Dd35A8E539E0aef6B88f459'
+OVL_ADDR = '0x738C250ef3e490acC17A8552A0BF11BabB29613c'
+STATE_ADDR = '0xA9d9981974f0f6FB192275489053299B1b2502F6'
+MARKET_ADDR = '0x436a0f8F1967CD7db6bEF6E9774e46b1d47f685D'
+FEED_ADDR = '0xeE878326772Ca2886D363Ec08b459cdCE46B497A'
 PARAMS = {
-    'k': 680187455489,
-    'lambda': 1101276756574031744,
-    'delta': 3825444954737599,
-    'capPayoff': 10000000000000000000,
-    'capNotional': 800000000000000000000000,
-    'capLeverage': 5000000000000000000,
-    'circuitBreakerWindow': 2592000,
-    'circuitBreakerMintTarget': 66670000000000000000000,
-    'maintenanceMarginFraction': 77621507357346512,
-    'maintenanceMarginBurnRate': 64852413396413568,
-    'liquidationFeeRate': 50000000000000000,
-    'tradingFeeRate': 750000000000000,
-    'minCollateral': 100000000000000,
-    'priceDriftUpperLimit': 100000000000000
+    "k": 115740740740,
+    "lambda": 750000000000000000,
+    "delta": 2475000000000000,
+    "capPayoff": 5000000000000000000,
+    "capNotional": 20000000000000000000000,
+    "capLeverage": 10000000000000000000,
+    "circuitBreakerWindow": 2592000,
+    "circuitBreakerMintTarget": 1666666666666666666666,
+    "maintenanceMarginFraction": 40000000000000000,
+    "maintenanceMarginBurnRate": 50000000000000000,
+    "liquidationFeeRate": 50000000000000000,
+    "tradingFeeRate": 750000000000000,
+    "minCollateral": 100000000000000,
+    "priceDriftUpperLimit": 87000000000000,
+    "averageBlockTime": 0
 }
 
 
-def load_contract(address):
-    try:
-        return Contract(address)
-    except ValueError:
-        return Contract.from_explorer(address)
+def load_contract(address, abi=None):
+    if abi:
+        with open(f'scripts/constants/{abi}.json') as f:
+            abi = json.load(f)
+        return Contract.from_abi('Contract', address, abi)
+    else:
+        try:
+            return Contract(address)
+        except ValueError:
+            return Contract.from_explorer(address)
+
+
+def get_abi(abi_name):
+    with open(f'constants/{abi_name}.json') as f:
+        return json.load(f)['abi']
 
 
 def get_prices(market, state):
@@ -122,10 +134,10 @@ def test_funding_rate(market, state):
 
 def main(acc):
     acc = accounts.load(acc)
-    market = load_contract(MARKET_ADDR)
-    feed = load_contract(FEED_ADDR)
-    state = load_contract(STATE_ADDR)
-    ovl = load_contract(OVL_ADDR)
+    market = load_contract(MARKET_ADDR, 'market')
+    feed = load_contract(FEED_ADDR, 'feed')
+    state = load_contract(STATE_ADDR, 'state')
+    ovl = load_contract(OVL_ADDR, 'ovl')
 
     prices = get_prices(market, state)
     latest_feed = get_latest_from_feed(feed)
