@@ -1,0 +1,13 @@
+{
+  "quotes": [
+        {
+            "id": "Balancer: WETH / DAI 60/40",
+            "is_price0": true,
+            "pair": "0x0b09deA16768f0799065C475bE02919503cB2a35",
+            "token0": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "token1": "0x6b175474e89094c44da98b954eedeac495271d0f",
+            "token0_name": "WETH",
+            "token1_name": "DAI"
+        }
+    ]
+}
