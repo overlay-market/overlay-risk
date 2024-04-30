@@ -217,52 +217,62 @@ def nexpected_value(a: float, b: float, mu: float, sigma: float,
     return nev_long, nev_short
 
 
-def get_ks(filename, t, cp):
+def get_ks(df:pd.DataFrame, periodicity:int, verbose:bool=False) -> pd.DataFrame:
     """
     Fits input csv timeseries data with pystable and generates output
     csv with funding constant params.
     """
-    filepath, resultsname, resultspath = helpers.get_paths(filename)
+    #filepath, resultsname, resultspath = helpers.get_paths(filename)
 
-    print(f'Analyzing file {filename}')
-    df = pd.read_csv(filepath)
-    p = df['close'].to_numpy() if 'close' in df else df['twap']
+    #print(f'Analyzing file {filename}')
+    #df = pd.read_csv(filepath)
+    p = df.to_numpy()  # if 'close' in df else df['twap']
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from
     pystable.fit(dst, log_close, len(log_close))
-    print(
-        f'''
-        fit params: alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
-        mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
-        '''
-    )
+    if verbose:
+        print(
+            f'''
+            fit params: alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
+            mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
+            '''
+        )
 
     # rescale to per second distribution
-    dst = rescale(dst, 1/t)
-    print(
-        f'''
-        rescaled params (1/t = {1/t}):
-        alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
-        mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
-        '''
-    )
+    dst = rescale(dst, 1/periodicity)
+
+    if verbose:
+        print(
+            f'''
+            rescaled params (1/t = {1/periodicity}):
+            alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
+            mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
+            '''
+        )
 
     # calc k (funding constant)
-    ks = []
-    for n in NS:
-        fundings = k(a=dst.contents.alpha, b=dst.contents.beta,
-                     mu=dst.contents.mu_1, sig=dst.contents.sigma,
-                     n=n, alphas=ALPHAS)
-        ks.append(fundings)
+    ks = [
+        k(
+            a=dst.contents.alpha, b=dst.contents.beta, mu=dst.contents.mu_1, 
+            sig=dst.contents.sigma, n=n, alphas=ALPHAS
+        )
+        for n in NS
+    ]
 
     df_ks = pd.DataFrame(
         data=ks,
-        columns=[f"alpha={alpha}" for alpha in ALPHAS],
-        index=[f"n={n}" for n in NS]
+        columns=[alpha for alpha in ALPHAS],
+        index=[int(n/86400) for n in NS]
     )
-    print('ks:', df_ks)
-    df_ks.to_csv(f"{resultspath}/{resultsname}-ks.csv")
+    df_ks.columns.name = "alpha"
+    df_ks.index.name = "days"
+
+    if verbose:
+        print('ks:', df_ks)
+    #if save:
+    #    df_ks.to_csv(f"{resultspath}/{resultsname}-ks.csv")
+
     return df_ks, dst
 
 
