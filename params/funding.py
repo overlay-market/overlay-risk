@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+from typing import List, Tuple
 
 from scipy import integrate
 import argparse
@@ -217,16 +218,15 @@ def nexpected_value(a: float, b: float, mu: float, sigma: float,
     return nev_long, nev_short
 
 
-def get_ks(df:pd.DataFrame, periodicity:int, verbose:bool=False) -> pd.DataFrame:
+def generic_get_ks(
+    p:np.ndarray, periodicity:int, verbose:bool=False
+) -> Tuple[List[float], pystable.STABLE_DIST]:
     """
-    Fits input csv timeseries data with pystable and generates output
-    csv with funding constant params.
+    Fits input timeseries dataframe with pystable. 
+    It returns a list with funding constant params, and
+    the Stable distribution that was fit to it
     """
-    #filepath, resultsname, resultspath = helpers.get_paths(filename)
 
-    #print(f'Analyzing file {filename}')
-    #df = pd.read_csv(filepath)
-    p = df.to_numpy()  # if 'close' in df else df['twap']
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from
@@ -260,19 +260,29 @@ def get_ks(df:pd.DataFrame, periodicity:int, verbose:bool=False) -> pd.DataFrame
         for n in NS
     ]
 
+    return ks, dst
+
+
+def get_ks(filename, t, cp):
+    """
+    Fits input csv timeseries data with pystable and generates output
+    csv with funding constant params.
+    """
+    filepath, resultsname, resultspath = helpers.get_paths(filename)
+
+    print(f'Analyzing file {filename}')
+    df = pd.read_csv(filepath)
+    p = df['close'].to_numpy() if 'close' in df else df['twap']
+    
+    ks, dst = generic_get_ks(p, t, True)
+
     df_ks = pd.DataFrame(
         data=ks,
-        columns=[alpha for alpha in ALPHAS],
-        index=[int(n/86400) for n in NS]
+        columns=[f"alpha={alpha}" for alpha in ALPHAS],
+        index=[f"n={n}" for n in NS]
     )
-    df_ks.columns.name = "alpha"
-    df_ks.index.name = "days"
-
-    if verbose:
-        print('ks:', df_ks)
-    #if save:
-    #    df_ks.to_csv(f"{resultspath}/{resultsname}-ks.csv")
-
+    print('ks:', df_ks)
+    df_ks.to_csv(f"{resultspath}/{resultsname}-ks.csv")
     return df_ks, dst
 
 
