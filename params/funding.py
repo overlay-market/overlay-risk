@@ -110,7 +110,7 @@ def k(a: float, b: float, mu: float, sig: float,
 
 
 def nvalue_at_risk(a: float, b: float, mu: float, sigma: float,
-                   k_n: float, alpha: float, t: float) -> (float, float):
+                   k_n: float, alpha: float, t: float) -> Tuple[float, float]:
     """
     Computed value at risk to the protocol at time `t` in the future
     for an initial open interest imbalance to one side, given `k=k_n`
@@ -138,7 +138,7 @@ def nvalue_at_risk(a: float, b: float, mu: float, sigma: float,
 
 def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
                         k_n: float, g_inv: float, cp: float, alpha: float,
-                        t: float) -> (float, float, float, float):
+                        t: float) -> Tuple[float, float, float, float]:
     """
     Computed expected shortfall (conditional & unconditional) at time `t`
     in the future for an initial open interest imbalance to one side, given
@@ -182,7 +182,7 @@ def nexpected_shortfall(a: float, b: float, mu: float, sigma: float,
 
 def nexpected_value(a: float, b: float, mu: float, sigma: float,
                     k_n: float, g_inv_long: float, cp: float,
-                    g_inv_short: float, t: float) -> (float, float):
+                    g_inv_short: float, t: float) -> Tuple[float, float]:
     """
     Computed expected value at time `t` in the future for an initial
     open interest imbalance to one side, given `k=k_n` calibration for
