@@ -199,16 +199,10 @@ def lmbda(a: float, b: float, mu: float, sig: float, v: float, g_inv: float,
     return np.maximum(lmbda_l, lmbda_s)
 
 
-def main(filename, t, cp, st):
-    """
-    Fits input csv timeseries data with pystable and generates output
-    csv with market impact static spread + slippage params.
-    """
-    filepath, resultsname, resultspath = helpers.get_paths(filename)
-
-    print(f'Analyzing file {filename}')
-    df = pd.read_csv(filepath)
-    p = df['close'].to_numpy() if 'close' in df else df['twap']
+def generic_delta_lambda(
+    p:np.ndarray, periodicity, cap, short_twap
+):
+    
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from
@@ -220,31 +214,48 @@ def main(filename, t, cp, st):
         '''
     )
 
-    dst = rescale(dst, 1/t)
+    dst = rescale(dst, 1/periodicity)
     print(
         f'''
-        rescaled params (1/t = {1/t}):
+        rescaled params (1/t = {1/periodicity}):
         alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
         mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
         '''
     )
-    g_inv = np.log(1+cp)
+    g_inv = np.log(1+cap)
 
     # calc deltas
     deltas = delta(dst.contents.alpha, dst.contents.beta,
-                   dst.contents.mu_1, dst.contents.sigma, st, ALPHAS)
-    df_deltas = pd.DataFrame(data=[ALPHAS, deltas]).T
-    df_deltas.columns = ['alpha', 'delta']
-    print('deltas:', df_deltas)
-    df_deltas.to_csv(f"{resultspath}/{resultsname}-deltas.csv", index=False)
-
+                   dst.contents.mu_1, dst.contents.sigma, short_twap, ALPHAS)
+    
     # calc lambda (mkt impact)
     ls = []
     for alpha in ALPHAS:
         lambdas = lmbda(dst.contents.alpha, dst.contents.beta,
                         dst.contents.mu_1, dst.contents.sigma,
-                        st, g_inv, alpha, Q0S)
+                        short_twap, g_inv, alpha, Q0S)
         ls.append(lambdas)
+
+    return deltas, ls
+
+
+def main(filename, t, cp, st):
+    """
+    Fits input csv timeseries data with pystable and generates output
+    csv with market impact static spread + slippage params.
+    """
+    filepath, resultsname, resultspath = helpers.get_paths(filename)
+
+    print(f'Analyzing file {filename}')
+    df = pd.read_csv(filepath)
+    p = df['close'].to_numpy() if 'close' in df else df['twap']
+    
+    deltas, ls = generic_delta_lambda(p, t, cp, st)
+
+    df_deltas = pd.DataFrame(data=[ALPHAS, deltas]).T
+    df_deltas.columns = ['alpha', 'delta']
+    print('deltas:', df_deltas)
+    df_deltas.to_csv(f"{resultspath}/{resultsname}-deltas.csv", index=False)
 
     df_ls = pd.DataFrame(
         data=ls,
