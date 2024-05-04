@@ -103,17 +103,10 @@ def mu_max(a: float, b: float, mu: float, sig: float,
     # choose the max bw the long and short calibrations
     return np.maximum(m_l, m_s)
 
+def generic_mu_max(
+    p:np.ndarray, periodicity, long_twap
+):
 
-def main(filename, t, v):
-    """
-    Fits input csv timeseries data with pystable and generates output
-    csv with market impact static spread + slippage params.
-    """
-    filepath, resultsname, resultspath = helpers.get_paths(filename)
-
-    print(f'Analyzing file {filename}')
-    df = pd.read_csv(filepath)
-    p = df['close'].to_numpy() if 'close' in df else df['twap']
     log_close = [np.log(p[i]/p[i-1]) for i in range(1, len(p))]
 
     dst = gaussian()  # use gaussian as init dist to fit from
@@ -125,18 +118,38 @@ def main(filename, t, v):
         '''
     )
 
-    dst = rescale(dst, 1/t)
+    dst = rescale(dst, 1/periodicity)
     print(
         f'''
-        rescaled params (1/t = {1/t}):
+        rescaled params (1/t = {1/periodicity}):
         alpha: {dst.contents.alpha}, beta: {dst.contents.beta},
         mu: {dst.contents.mu_1}, sigma: {dst.contents.sigma}
         '''
     )
 
     # calc mu_maxs
-    mus = mu_max(dst.contents.alpha, dst.contents.beta,
-                 dst.contents.mu_1, dst.contents.sigma, v, ALPHAS)
+    mus = mu_max(
+        dst.contents.alpha, dst.contents.beta, dst.contents.mu_1, 
+        dst.contents.sigma, long_twap, ALPHAS
+    )
+    
+    return mus
+
+
+def main(filename, t, v):
+    """
+    Fits input csv timeseries data with pystable and generates output
+    csv with market impact static spread + slippage params.
+    """
+    filepath, resultsname, resultspath = helpers.get_paths(filename)
+
+    print(f'Analyzing file {filename}')
+    df = pd.read_csv(filepath)
+    p = df['close'].to_numpy() if 'close' in df else df['twap']
+
+    # calc mu_maxs
+    mus = generic_mu_max(p, t, v)
+
     df_mus = pd.DataFrame(data=[ALPHAS, mus]).T
     df_mus.columns = ['alpha', 'mu_max']
     print('mu_maxs:', df_mus)
