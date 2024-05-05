@@ -16,5 +16,7 @@ my_files
 .ipynb_checkpoints
 .DS_Store
 .env
-notes.txt
+*.csv
+*.txt
 scripts/risk_pipeline/outputs/
+data/btc_ev_v12_fiat.csv
