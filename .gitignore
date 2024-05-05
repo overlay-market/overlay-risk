@@ -20,3 +20,4 @@ my_files
 *.txt
 scripts/risk_pipeline/outputs/
 data/btc_ev_v12_fiat.csv
+*.png
