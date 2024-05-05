@@ -91,6 +91,9 @@ def main(file_name, p, cp, st, lt):
 
     # Print and save parameters
     parameters = {
+        "cap": cp,
+        "short twap": st,
+        "long twap": lt,
         'k': param_k,
         'lambda': param_lambda,
         'delta': param_delta,
