@@ -32,7 +32,9 @@ def gaussian():
 
 def rescale(dist: pystable.STABLE_DIST, t: float) -> pystable.STABLE_DIST:
     mu = dist.contents.mu_1 * t
-    if t > 1:
+    if np.abs(t-1.) < 1e-15:
+        sigma = dist.contents.sigma
+    elif t > 1:
         sigma = dist.contents.sigma * \
             (t/dist.contents.alpha)**(1/dist.contents.alpha)
     else:
