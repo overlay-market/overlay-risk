@@ -75,7 +75,7 @@ def rescale(dist: pystable.STABLE_DIST, t: float) -> pystable.STABLE_DIST:
 
 
 def k(a: float, b: float, mu: float, sig: float,
-      n: float, alphas: np.ndarray) -> np.ndarray:
+      n: float, alphas: np.ndarray, cvar:bool=False) -> np.ndarray:
     """
     Computed funding constant calibration `k` given uncertainty
     levels `alphas` and anchor time `n`.
@@ -88,14 +88,36 @@ def k(a: float, b: float, mu: float, sig: float,
 
     # k long needed for VaR = 0 at n in future
     # NOTE: divide by 1/2T_alpha at return
-    qs_long = pystable.q(dst_y, list(1-alphas), len(alphas))
-    qs_long = np.array(qs_long)
+
+    qs_long = np.zeros_like(alphas)
+
+    if cvar:
+        min_var = pystable.q(dst_y, [0.001 * np.min(alphas)], 1)[0]
+        fixed_interval = 100
+        for i, a in enumerate(alphas):
+            var:np.ndarray = pystable.q(dst_y, [a], 1)[0]
+            x = np.linspace(min_var, var, fixed_interval)
+            prob = np.array(pystable.pdf(dst_y, x, len(x)))
+            qs_long[i] = np.dot(x, prob) / sum(prob)  # conditional probability
+    else:
+        qs_long = np.array(pystable.q(dst_y, list(1-alphas), len(alphas)))
+
     k_long = qs_long
 
     # k short needed for VaR = 0 at n in future
     # NOTE: divide by 1/2T_alpha at return
-    qs_short = pystable.q(dst_y, list(alphas), len(alphas))
-    qs_short = np.array(qs_short)
+    qs_short = np.zeros_like(alphas)
+    if cvar:
+        max_var = pystable.q(dst_y, [np.min([1.1 * np.max(alphas), 0.999999])], 1)[0]
+        fixed_interval = 100
+        for i, a in enumerate(alphas):
+            var:np.ndarray = pystable.q(dst_y, [a], 1)[0]
+            x = np.linspace(var, max_var, fixed_interval)
+            prob = np.array(pystable.pdf(dst_y, x, len(x)))
+            qs_short[i] = np.dot(x, prob) / sum(prob)  # conditional probability
+    else:
+        qs_short = np.array(pystable.q(dst_y, list(alphas), len(alphas)))
+    
     k_short = np.log(2 - np.exp(qs_short))
 
     # Compare long vs short and return max of the two
