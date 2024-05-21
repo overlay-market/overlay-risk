@@ -92,7 +92,7 @@ def k(a: float, b: float, mu: float, sig: float,
     qs_long = np.zeros_like(alphas)
 
     if cvar:
-        min_var = pystable.q(dst_y, [0.001 * np.min(alphas)], 1)[0]
+        min_var = pystable.q(dst_y, [0.01 * np.min(alphas)], 1)[0]
         fixed_interval = 100
         for i, a in enumerate(alphas):
             var:np.ndarray = pystable.q(dst_y, [a], 1)[0]
@@ -100,28 +100,28 @@ def k(a: float, b: float, mu: float, sig: float,
             prob = np.array(pystable.pdf(dst_y, x, len(x)))
             qs_long[i] = np.dot(x, prob) / sum(prob)  # conditional probability
     else:
-        qs_long = np.array(pystable.q(dst_y, list(1-alphas), len(alphas)))
+        qs_long = np.array(pystable.q(dst_y, list(alphas), len(alphas)))
 
-    k_long = qs_long
+    k_max = np.abs(qs_long)
 
     # k short needed for VaR = 0 at n in future
     # NOTE: divide by 1/2T_alpha at return
     qs_short = np.zeros_like(alphas)
     if cvar:
-        max_var = pystable.q(dst_y, [np.min([1.1 * np.max(alphas), 0.999999])], 1)[0]
+        max_var = pystable.q(dst_y, [np.min([1.1 * np.max(1.-alphas), 0.999])], 1)[0]
         fixed_interval = 100
         for i, a in enumerate(alphas):
-            var:np.ndarray = pystable.q(dst_y, [a], 1)[0]
+            var:np.ndarray = pystable.q(dst_y, [1.-a], 1)[0]
             x = np.linspace(var, max_var, fixed_interval)
             prob = np.array(pystable.pdf(dst_y, x, len(x)))
             qs_short[i] = np.dot(x, prob) / sum(prob)  # conditional probability
     else:
-        qs_short = np.array(pystable.q(dst_y, list(alphas), len(alphas)))
+        qs_short = np.array(pystable.q(dst_y, list(1.-alphas), len(alphas)))
     
-    k_short = np.log(2 - np.exp(qs_short))
+    #k_short = np.log(2. - np.exp(qs_short))
 
     # Compare long vs short and return max of the two
-    k_max = np.maximum(k_long, k_short)
+    #k_max = np.maximum(k_long, k_short)
 
     # calculate t_alpha: i.e. get n in seconds in the future
     # divide by 1/2T_alpha to get k value then return
