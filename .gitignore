@@ -18,3 +18,6 @@ my_files
 .env
 notes.txt
 scripts/risk_pipeline/outputs/
+*.csv
+*.png
+parameters*.txt
