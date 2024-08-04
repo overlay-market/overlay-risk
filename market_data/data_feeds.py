@@ -93,23 +93,28 @@ def get_bin_size_and_unit(resolution):
     }
     return bin_size_and_unit_map.get(resolution, (1, "hour"))
 
-def main(): ## Will move this to Test 
-    """
-    Main function to fetch historical market data and display the result.
-    """
+def main(): #To test later
+    # Parameters for data fetching
     symbol = "Electric Vehicle Commodity Index"
     market = "0x770e3a8afc5c01855b5bd8eb5b96b23bd7af1e43"
-    resolution = "5"
+    resolution = "1"
     from_date = "27-05-2024"
-    to_date = "16-07-2024"
+    to_date = "03-08-2024"
     from_timestamp = get_unix_timestamp(from_date)
     to_timestamp = get_unix_timestamp(to_date)
     is_sepolia = True
 
     try:
+        # Fetch historical market data
         df = get_historical_data(symbol, market, resolution, from_timestamp, to_timestamp, is_sepolia)
         print("Data fetched successfully.")
         print(df)
+
+        # Save DataFrame to CSV file
+        csv_filename = "historical_data1.csv"
+        df.to_csv(csv_filename)
+        print(f"Data saved to {csv_filename}")
+
     except ValueError as e:
         print(f"Error: {e}")
 
