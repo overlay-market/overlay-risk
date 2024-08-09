@@ -17,6 +17,12 @@ def fit_stable(data):
     result = minimize(negative_log_likelihood, initial_params, args=(data,), bounds=bounds)
     return result.x
 
+def rescale_params(alpha, beta, mu, sigma, time_factor):
+    """Rescale parameters to a different time scale."""
+    mu_rescaled = mu * time_factor
+    sigma_rescaled = sigma * time_factor**(1/alpha)
+    return alpha, beta, mu_rescaled, sigma_rescaled
+
 def delta_long(a, b, mu, sig, v, alphas):
     dist = levy_stable(a, b, loc=mu*v, scale=sig*(v**(1/a)))
     qs_long = dist.ppf(1 - alphas)
@@ -82,9 +88,9 @@ def analyze_data(csv_file_path, t, cp, st):
         print(f'Fit params: alpha: {a}, beta: {b}, mu: {mu}, sigma: {sig}')
 
         # Rescale parameters to match per-second calculations
-        mu /= t
-        sig /= t**(1/a)
-        print(f'Rescaled params (1/t = {1/t}): alpha: {a}, beta: {b}, mu: {mu}, sigma: {sig}')
+        time_factor = 1 / t  # `t` is the original period in seconds
+        a, b, mu, sig = rescale_params(a, b, mu, sig, time_factor)
+        print(f'Rescaled params (1/t = {time_factor}): alpha: {a}, beta: {b}, mu: {mu}, sigma: {sig}')
 
         # Compute g_inv
         g_inv = np.log(1 + cp)
@@ -113,8 +119,8 @@ def analyze_data(csv_file_path, t, cp, st):
 # Example usage
 if __name__ == "__main__":
     # Set parameters in seconds
-    csv_file_path = r"C:\Users\HP\Desktop\risk\overlay-risk\historical_data.csv" 
-    t = 300  # periodicity in seconds (5 minutes)
+    csv_file_path = r"C:\Users\HP\Desktop\risk\overlay-risk\ev_index.csv" 
+    t = 86400  # periodicity in seconds (1 day)
     st = 600  # shorter TWAP in seconds (10 minutes)
     cp = 5  # payoff cap
 
