@@ -4,16 +4,17 @@ from scipy.stats import levy_stable
 from scipy import integrate
 
 # Constants
-FILENAME = "historical_data"
+FILENAME = "ev_index"
 FILEPATH = f"C:/Users/HP/Desktop/risk/overlay-risk/{FILENAME}.csv"  # data file path
-KS_FILEPATH = f"C:/Users/HP/Desktop/risk/overlay-risk/metrics/{FILENAME}-ks.csv"
+KS_FILEPATH = f"C:/Users/HP/Desktop/risk/overlay-risk//{FILENAME}-ks.csv"
 
 T = 300  # 5 m candle size on data file (in seconds)
 TC = 600  # 10 m compounding period (in seconds)
 CP = 5  # Example payoff cap
 
 # EV are projected over hour intervals in data file
-TS = 5760 * np.array([7, 15, 20, 30])  # 7d, 15d, 20d, 30d (Ti values)
+#TS = 5760 * np.array([7, 15, 20, 30])  # 7d, 15d, 20d, 30d (Ti values)
+TS = 5760 * np.array([30])  # 7d, 15d, 20d, 30d (Ti values)
 ALPHA = 0.05
 
 # 20% inflation per year total for all markets
@@ -23,7 +24,7 @@ BLOCKS_PER_YEAR = 5760 * 365
 IS = TS * (INFLATION_PER_YEAR / NUM_MARKETS) / BLOCKS_PER_YEAR
 
 def gaussian():
-    return levy_stable.create(alpha=2.0, beta=0.0, loc=0.0, scale=1.0)
+    return levy_stable.rvs(alpha=2.0, beta=0.0, loc=0.0, scale=1.0)
 
 def rescale_params(alpha, beta, mu, sigma, t):
     """
@@ -37,14 +38,10 @@ def rescale_params(alpha, beta, mu, sigma, t):
     tuple: Rescaled parameters (alpha, beta, mu_rescaled, sigma_rescaled).
     """
     mu_rescaled = mu * t
-    if t > 1:
-        sigma_rescaled = sigma * (t / alpha) ** (1 / alpha)
-    else:
-        sigma_rescaled = sigma * ((1 / t) / alpha) ** (-1 / alpha)
+    sigma_rescaled = sigma * (t ** (1 / alpha))
     return alpha, beta, mu_rescaled, sigma_rescaled
 
 def nexpected_value(alpha, beta, mu, sigma, k, v, g_inv_long, cp, g_inv_short, is_long, t):
-    x = levy_stable(alpha, beta, loc=mu * t, scale=sigma * (t ** (1 / alpha)))
     oi_imb = ((1 - 2 * k) ** np.floor(t / v))
 
     def integrand(y):
@@ -53,13 +50,13 @@ def nexpected_value(alpha, beta, mu, sigma, k, v, g_inv_long, cp, g_inv_short, i
     if is_long:
         # expected value long
         cdf_x_ginv = levy_stable.cdf(g_inv_long, alpha, beta, loc=mu * t, scale=sigma * (t ** (1 / alpha)))
-        integral_long, _ = integrate.quad(integrand, -np.inf, g_inv_long)
+        integral_long, _ = integrate.quad(integrand, -np.inf, g_inv_long, limit=500)
         nev_long = oi_imb * (integral_long - cdf_x_ginv + cp * (1 - cdf_x_ginv))
         return nev_long
     else:
         # expected value short
         cdf_x_ginv_one = levy_stable.cdf(g_inv_short, alpha, beta, loc=mu * t, scale=sigma * (t ** (1 / alpha)))
-        integral_short, _ = integrate.quad(integrand, -np.inf, g_inv_short)
+        integral_short, _ = integrate.quad(integrand, -np.inf, g_inv_short, limit=500)
         nev_short = oi_imb * (2 * cdf_x_ginv_one - 1 - integral_short)
         return nev_short
 
@@ -67,7 +64,7 @@ def time_averaged_ev(alpha, beta, mu, sigma, k, v, g_inv_long, cp, g_inv_short, 
     def integrand(tau):
         return nexpected_value(alpha, beta, mu, sigma, k, v, g_inv_long, cp, g_inv_short, is_long, tau)
 
-    integral, _ = integrate.quad(integrand, 0, t)
+    integral, _ = integrate.quad(integrand, 0, t, limit=500)
     return integral / t
 
 def main():
@@ -75,6 +72,9 @@ def main():
     df = pd.read_csv(FILEPATH)
     p = df['close'].to_numpy() if 'close' in df else df['twap']
     log_close = np.diff(np.log(p))
+
+    # Remove NaNs or infs
+    log_close = log_close[np.isfinite(log_close)]
 
     # Fit Levy stable distribution
     alpha, beta, mu, sigma = levy_stable.fit(log_close)
@@ -84,8 +84,8 @@ def main():
     alpha, beta, mu, sigma = rescale_params(alpha, beta, mu, sigma, 1 / T)
     print(f"rescaled params (1/T = {1 / T}): alpha: {alpha}, beta: {beta}, mu: {mu}, sigma: {sigma}")
 
-    df_ks = pd.read_csv(KS_FILEPATH)
-    print('df_ks[ALPHA]', df_ks[f"alpha={ALPHA}"])
+    # Set single k value
+    k = 1.16e-7  # Example k value
 
     # inverse cap
     g_inv = np.log(1 + CP)
@@ -98,49 +98,39 @@ def main():
     for t in TS:
         print('t', t)
 
-        tavg_ev_t_long = []
-        tavg_ev_t_short = []
+        # time averaged normalized expected value
+        tavg_ev_l = time_averaged_ev(alpha, beta, mu, sigma, k, TC, g_inv, CP, g_inv_one, True, t)
+        tavg_ev_s = time_averaged_ev(alpha, beta, mu, sigma, k, TC, g_inv, CP, g_inv_one, False, t)
 
-        for k in df_ks[f"alpha={ALPHA}"]:
-            print('k', k)
-            # time averaged normalized expected value
-            tavg_ev_l = time_averaged_ev(alpha, beta, mu, sigma, k, TC, g_inv, CP, g_inv_one, True, t)
-            tavg_ev_s = time_averaged_ev(alpha, beta, mu, sigma, k, TC, g_inv, CP, g_inv_one, False, t)
-
-            tavg_ev_t_long.append(tavg_ev_l)
-            tavg_ev_t_short.append(tavg_ev_s)
-
-        tavg_ev_long.append(tavg_ev_t_long)
-        tavg_ev_short.append(tavg_ev_t_short)
+        tavg_ev_long.append(tavg_ev_l)
+        tavg_ev_short.append(tavg_ev_s)
 
         print('tavg_ev_long', tavg_ev_long)
         print('tavg_ev_short', tavg_ev_short)
 
     # VaR dataframe to csv
     df_tavg_ev_long = pd.DataFrame(
-        data=tavg_ev_long,
-        columns=[f"k={k_n}" for k_n in df_ks[f"alpha={ALPHA}"]],
-        index=[f"ti={t}" for t in TS]
+        data=[tavg_ev_long],
+        columns=[f"ti={t}" for t in TS]
     )
     df_tavg_ev_short = pd.DataFrame(
-        data=tavg_ev_short,
-        columns=[f"k={k_n}" for k_n in df_ks[f"alpha={ALPHA}"]],
-        index=[f"ti={t}" for t in TS]
+        data=[tavg_ev_short],
+        columns=[f"ti={t}" for t in TS]
     )
     print(f'tavg ev long (alpha={ALPHA}):', df_tavg_ev_long)
-    df_tavg_ev_long.to_csv(f"C:/Users/HP/Desktop/risk/overlay-risk/metrics/{FILENAME}-tavg-ev-long-alpha-{ALPHA}.csv")
+    df_tavg_ev_long.to_csv(f"C:/Users/HP/Desktop/risk/overlay-risk//{FILENAME}-tavg-ev-long-alpha-{ALPHA}.csv")
 
     print(f'tavg ev short (alpha={ALPHA}):', df_tavg_ev_short)
-    df_tavg_ev_short.to_csv(f"C:/Users/HP/Desktop/risk/overlay-risk/metrics/{FILENAME}-tavg-ev-short-alpha-{ALPHA}.csv")
+    df_tavg_ev_short.to_csv(f"C:/Users/HP/Desktop/risk/overlay-risk//{FILENAME}-tavg-ev-short-alpha-{ALPHA}.csv")
 
     # Cq estimates with respect to total supply
-    df_tavg_ev = df_tavg_ev_long
+    df_tavg_ev = df_tavg_ev_long.T
 
     def apply_cq(col):
         return IS / col
-    df_cqs = df_tavg_ev.apply(apply_cq)
+    df_cqs = df_tavg_ev.apply(apply_cq, axis=1)
     print(f'cq (alpha={ALPHA}):', df_cqs)
-    df_cqs.to_csv(f"C:/Users/HP/Desktop/risk/overlay-risk/metrics/{FILENAME}-cq-alpha-{ALPHA}.csv")
+    df_cqs.to_csv(f"C:/Users/HP/Desktop/risk/overlay-risk//{FILENAME}-cq-alpha-{ALPHA}.csv")
 
 if __name__ == '__main__':
     main()
