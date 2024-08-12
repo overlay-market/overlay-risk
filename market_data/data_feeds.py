@@ -97,9 +97,9 @@ def main(): #To test later
     # Parameters for data fetching
     symbol = "Electric Vehicle Commodity Index"
     market = "0x770e3a8afc5c01855b5bd8eb5b96b23bd7af1e43"
-    resolution = "1"
+    resolution = "1D"
     from_date = "27-05-2024"
-    to_date = "03-08-2024"
+    to_date = "08-08-2024"
     from_timestamp = get_unix_timestamp(from_date)
     to_timestamp = get_unix_timestamp(to_date)
     is_sepolia = True
@@ -111,7 +111,7 @@ def main(): #To test later
         print(df)
 
         # Save DataFrame to CSV file
-        csv_filename = "historical_data1.csv"
+        csv_filename = "ev_index.csv"
         df.to_csv(csv_filename)
         print(f"Data saved to {csv_filename}")
 
