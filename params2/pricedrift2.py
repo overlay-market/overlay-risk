@@ -65,10 +65,9 @@ def mu_max(alpha, beta, mu, sigma, v, alphas):
     m_s = mu_max_short(alpha, beta, mu, sigma, v, alphas)
     return np.maximum(m_l, m_s)
 
-def main():
-    # Hardcoded parameters for testing
-    filename = r"C:\Users\HP\Desktop\risk\overlay-risk\historical_data.csv"
-    t = 86400  # Example periodicity (1 day in seconds)
+def main(data_file, alpha_level):
+    filename = data_file
+    t = 86400
     v = 432000  # Example longer TWAP (5 days in seconds)
 
     print(f'Analyzing file {filename}')
@@ -76,23 +75,19 @@ def main():
     p = df['close'].to_numpy() if 'close' in df else df['twap']
     log_close = np.log(p[1:] / p[:-1])
 
-    # Fit Levy stable distribution
     alpha, beta, mu, sigma = levy_stable.fit(log_close)
     print(f"fit params: alpha: {alpha}, beta: {beta}, mu: {mu}, sigma: {sigma}")
 
-    # Rescale distribution parameters
     alpha, beta, mu, sigma = rescale_params(alpha, beta, mu, sigma, 1/t)
     print(f"rescaled params (1/t = {1/t}): alpha: {alpha}, beta: {beta}, mu: {mu}, sigma: {sigma}")
 
-    # Calculate mu_maxs
     mus = mu_max(alpha, beta, mu, sigma, v, ALPHAS)
     df_mus = pd.DataFrame(data={'alpha': ALPHAS, 'mu_max': mus})
     print('mu_maxs:', df_mus)
 
-    # Save results to CSV
     resultspath = os.path.dirname(filename)
     resultsname = os.path.basename(filename).rsplit('.', 1)[0]
     df_mus.to_csv(f"{resultspath}/{resultsname}-mu_maxs.csv", index=False)
 
-if __name__ == "__main__":
-    main()
+    return df_mus
+

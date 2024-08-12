@@ -18,7 +18,6 @@ def fit_stable(data):
     return result.x
 
 def rescale_params(alpha, beta, mu, sigma, time_factor):
-    """Rescale parameters to a different time scale."""
     mu_rescaled = mu * time_factor
     sigma_rescaled = sigma * time_factor**(1/alpha)
     return alpha, beta, mu_rescaled, sigma_rescaled
@@ -70,37 +69,29 @@ def lmbda(a, b, mu, sig, v, g_inv, alpha, q0s):
     lmbda_s = lmbda_short(a, b, mu, sig, v, alpha, q0s)
     return np.maximum(lmbda_l, lmbda_s)
 
-# Main function
-def analyze_data(csv_file_path, t, cp, st):
-    # Load historical market data from CSV file
+def analyze_data(csv_file_path, t, cp, st, alpha_level):
     try:
         df = pd.read_csv(csv_file_path, index_col='datetime', parse_dates=True)
         print("Data loaded successfully.")
         print(df)
 
-        # Process data for Levy stable fitting
         p = df['close'].to_numpy()
         log_close = np.diff(np.log(p))
 
-        # Fit Levy stable distribution
         params = fit_stable(log_close)
         a, b, mu, sig = params
         print(f'Fit params: alpha: {a}, beta: {b}, mu: {mu}, sigma: {sig}')
 
-        # Rescale parameters to match per-second calculations
-        time_factor = 1 / t  # `t` is the original period in seconds
+        time_factor = 1 / t
         a, b, mu, sig = rescale_params(a, b, mu, sig, time_factor)
         print(f'Rescaled params (1/t = {time_factor}): alpha: {a}, beta: {b}, mu: {mu}, sigma: {sig}')
 
-        # Compute g_inv
         g_inv = np.log(1 + cp)
 
-        # Calculate deltas
         deltas = delta(a, b, mu, sig, st, ALPHAS)
         df_deltas = pd.DataFrame(data={'alpha': ALPHAS, 'delta': deltas})
         print('Deltas:', df_deltas)
 
-        # Calculate lambdas
         ls = []
         for alpha in ALPHAS:
             lambdas = lmbda(a, b, mu, sig, st, g_inv, alpha, Q0S)
@@ -115,13 +106,3 @@ def analyze_data(csv_file_path, t, cp, st):
         print(f"CSV file not found: {csv_file_path}")
     except ValueError as e:
         print(f"Error: {e}")
-
-# Example usage
-if __name__ == "__main__":
-    # Set parameters in seconds
-    csv_file_path = r"C:\Users\HP\Desktop\risk\overlay-risk\ev_index.csv" 
-    t = 86400  # periodicity in seconds (1 day)
-    st = 600  # shorter TWAP in seconds (10 minutes)
-    cp = 5  # payoff cap
-
-    df_deltas, df_ls = analyze_data(csv_file_path, t, cp, st)

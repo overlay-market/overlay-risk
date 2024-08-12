@@ -5,8 +5,6 @@ from scipy import integrate
 
 # Constants
 TS = 3600 * np.arange(1, 721)  # 1h, 2h, 3h, ...., 30d
-CONFIDENCE_LEVEL = 0.95
-ALPHA = 0.05
 
 def rescale_params(alpha, beta, mu, sigma, t):
     """
@@ -129,19 +127,9 @@ def calculate_beta(alpha, beta, mu, sigma, t, alpha_level, mm):
 
     return np.maximum(beta_l, beta_s)
 
-def main():
-    """
-    Main function to fit input CSV timeseries data with Levy stable distribution and generate
-    output CSV with market impact, static spread, and slippage parameters.
-
-    It reads the market data, fits the Levy stable distribution, rescales parameters,
-    and calculates maintenance margins and beta values for each time frame.
-
-    Returns:
-        pd.DataFrame: Combined DataFrame with maintenance margin and beta values.
-    """
-    filename = r"C:\Users\HP\Desktop\risk\overlay-risk\historical_data.csv"
-    t = 86400  # Example periodicity (1 day in seconds)
+def main(data_file, alpha_level):
+    filename = data_file
+    t = 86400
 
     print(f'Analyzing file {filename}')
     df = pd.read_csv(filename)
@@ -156,23 +144,19 @@ def main():
 
     data = []
     for t in TS:
-        mm_value = mm(alpha, beta, mu, sigma, t, ALPHA)
-        beta_value = calculate_beta(alpha, beta, mu, sigma, t, ALPHA, mm_value)
+        mm_value = mm(alpha, beta, mu, sigma, t, alpha_level)
+        beta_value = calculate_beta(alpha, beta, mu, sigma, t, alpha_level, mm_value)
         data.append((t, mm_value, beta_value))
 
-    # Adding detailed column names
     df_combined = pd.DataFrame(
         data,
         columns=[
             'time_frame_seconds',
-            f'mm_alpha={ALPHA}_beta={beta}_mu={mu}_sigma={sigma}',
-            f'beta_alpha={ALPHA}_beta={beta}_mu={mu}_sigma={sigma}'
+            f'mm_alpha={alpha_level}_beta={beta}_mu={mu}_sigma={sigma}',
+            f'beta_alpha={alpha_level}_beta={beta}_mu={mu}_sigma={sigma}'
         ]
     )
     print('Combined DataFrame:', df_combined)
     df_combined.to_csv(f"{filename.rsplit('.', 1)[0]}-combined.csv", index=False)
 
     return df_combined
-
-if __name__ == '__main__':
-    main()
