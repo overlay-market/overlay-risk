@@ -4,7 +4,7 @@ from scipy.stats import levy_stable
 import os
 
 # uncertainties
-ALPHAS = np.array([0.05])
+ALPHAS = np.array([0.1])
 
 def rescale_params(alpha, beta, mu, sigma, t):
     """
@@ -65,10 +65,10 @@ def mu_max(alpha, beta, mu, sigma, v, alphas):
     m_s = mu_max_short(alpha, beta, mu, sigma, v, alphas)
     return np.maximum(m_l, m_s)
 
-def main(data_file, alpha_level):
+def analyze(data_file, alpha_level):
     filename = data_file
     t = 86400
-    v = 432000  # Example longer TWAP (5 days in seconds)
+    v = 3600  #longer TWAP 
 
     print(f'Analyzing file {filename}')
     df = pd.read_csv(filename)
@@ -91,3 +91,17 @@ def main(data_file, alpha_level):
 
     return df_mus
 
+def main():
+    # Example parameters
+    data_file = r'C:\Users\HP\Desktop\overlay\overlay-risk\ethsol.csv'  # Replace with your desired CSV file path
+    alpha_level = 0.1  # Confidence level
+
+    # Run the analysis
+    df_mus = analyze(data_file, alpha_level)
+
+    # Display the results
+    print("Mu_max Results:")
+    print(df_mus)
+
+if __name__ == "__main__":
+    main()

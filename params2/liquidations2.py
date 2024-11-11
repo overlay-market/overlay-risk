@@ -160,3 +160,6 @@ def main(data_file, alpha_level):
     df_combined.to_csv(f"{filename.rsplit('.', 1)[0]}-combined.csv", index=False)
 
     return df_combined
+
+if __name__ == "__main__":
+    main(r"C:\Users\HP\Desktop\overlay\overlay-risk\ethsol.csv", 0.01)

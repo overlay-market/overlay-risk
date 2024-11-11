@@ -10,16 +10,33 @@ from pricedrift2 import main as pricedrift_main
 from caps2 import main as caps_main
 
 class RiskParameters:
-    # Class-level variables with default values
-    market_name = "ai_index"
-    data_file = r"C:\Users\HP\Desktop\risk\overlay-risk\ai_index.csv"
-    alpha = 0.05
+    """
+    Class to handle the running of all risk parameter calculations.
+
+    Attributes:
+        market_name (str): The name of the market being analyzed.
+        data_file (str): Path to the data file.
+        alpha (float): Confidence level for the risk calculations.
+        t (int): Periodicity in seconds (default: 86400 seconds = 1 day).
+        cp (int): Payoff cap.
+        st (int): Shorter TWAP in seconds.
+    """
+
+    market_name = "Super"
+    data_file = r"C:\Users\HP\bytes.csv"
+    alpha = 0.01
     t = 86400  # Periodicity in seconds (default: 86400 seconds = 1 day)
     cp = 5  # Payoff cap
     st = 600  # Shorter TWAP in seconds
 
     @classmethod
     def run_all(cls):
+        """
+        Run all modules and generate a summary of the risk parameters.
+
+        Returns:
+            dict: A summary report of all the risk parameters.
+        """
         summary = {}
 
         # Run Funding module
@@ -57,15 +74,25 @@ class RiskParameters:
         return summary
 
 def main():
-    # Run all modules and generate the summary
+    print("Running the main function...")
+
+    # Run all the risk parameter calculations and get the summary
     summary = RiskParameters.run_all()
 
-    # Print summary report
+    # Print the summary report
     print("\n=== Summary Report ===")
     print(f"Market: {RiskParameters.market_name}")
     print("TWAP: Shorter TWAP = 10 minutes, Longer TWAP = 1 hour\n")
     for key, value in summary.items():
         print(f"{key}: {value}")
+    
+    # If you need to save the summary to a file, you could do so here
+    # For example:
+    # with open("summary_report.txt", "w") as f:
+    #     f.write(f"Market: {RiskParameters.market_name}\n")
+    #     f.write("TWAP: Shorter TWAP = 10 minutes, Longer TWAP = 1 hour\n")
+    #     for key, value in summary.items():
+    #         f.write(f"{key}: {value}\n")
 
 if __name__ == "__main__":
     main()

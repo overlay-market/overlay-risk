@@ -4,21 +4,21 @@ from scipy.stats import levy_stable
 from scipy import integrate
 
 # Constants
-FILENAME = "ev_index"
-FILEPATH = f"C:/Users/HP/Desktop/risk/overlay-risk/{FILENAME}.csv"  # data file path
-KS_FILEPATH = f"C:/Users/HP/Desktop/risk/overlay-risk//{FILENAME}-ks.csv"
+FILENAME = "btcd"
+FILEPATH = r"C:\Users\HP\Desktop\overlay\overlay-risk\btcd.csv"  # data file path
+KS_FILEPATH = r"C:\Users\HP\Desktop\overlay\overlay-risk\btcd-ks.csv"
 
-T = 300  # 5 m candle size on data file (in seconds)
+T =  86400 # 5 m candle size on data file (in seconds)
 TC = 600  # 10 m compounding period (in seconds)
 CP = 5  # Example payoff cap
 
 # EV are projected over hour intervals in data file
 #TS = 5760 * np.array([7, 15, 20, 30])  # 7d, 15d, 20d, 30d (Ti values)
 TS = 5760 * np.array([30])  # 7d, 15d, 20d, 30d (Ti values)
-ALPHA = 0.05
+ALPHA = 0.01
 
 # 20% inflation per year total for all markets
-NUM_MARKETS = 9
+NUM_MARKETS = 20
 INFLATION_PER_YEAR = 0.2
 BLOCKS_PER_YEAR = 5760 * 365
 IS = TS * (INFLATION_PER_YEAR / NUM_MARKETS) / BLOCKS_PER_YEAR
@@ -43,22 +43,29 @@ def rescale_params(alpha, beta, mu, sigma, t):
 
 def nexpected_value(alpha, beta, mu, sigma, k, v, g_inv_long, cp, g_inv_short, is_long, t):
     oi_imb = ((1 - 2 * k) ** np.floor(t / v))
-
+    
+    # Define the integrand function for integration
     def integrand(y):
         return levy_stable.pdf(y, alpha, beta, loc=mu * t, scale=sigma * (t ** (1 / alpha))) * np.exp(y)
+    
+    # Limit the integration range to +/- 4 standard deviations around the mean
+    mean = mu * t
+    stddev = sigma * (t ** (1 / alpha))  # Standard deviation based on scaling
+    integration_limit = 4 * stddev  # +/- 4 standard deviations
 
     if is_long:
         # expected value long
-        cdf_x_ginv = levy_stable.cdf(g_inv_long, alpha, beta, loc=mu * t, scale=sigma * (t ** (1 / alpha)))
-        integral_long, _ = integrate.quad(integrand, -np.inf, g_inv_long, limit=500)
+        cdf_x_ginv = levy_stable.cdf(g_inv_long, alpha, beta, loc=mean, scale=stddev)
+        integral_long, _ = integrate.quad(integrand, -integration_limit, g_inv_long, epsabs=1e-5, limit=500)
         nev_long = oi_imb * (integral_long - cdf_x_ginv + cp * (1 - cdf_x_ginv))
         return nev_long
     else:
         # expected value short
-        cdf_x_ginv_one = levy_stable.cdf(g_inv_short, alpha, beta, loc=mu * t, scale=sigma * (t ** (1 / alpha)))
-        integral_short, _ = integrate.quad(integrand, -np.inf, g_inv_short, limit=500)
+        cdf_x_ginv_one = levy_stable.cdf(g_inv_short, alpha, beta, loc=mean, scale=stddev)
+        integral_short, _ = integrate.quad(integrand, -integration_limit, g_inv_short, epsabs=1e-5, limit=500)
         nev_short = oi_imb * (2 * cdf_x_ginv_one - 1 - integral_short)
         return nev_short
+
 
 def time_averaged_ev(alpha, beta, mu, sigma, k, v, g_inv_long, cp, g_inv_short, is_long, t):
     def integrand(tau):

@@ -4,8 +4,8 @@ import numpy as np
 from scipy.stats import levy_stable
 
 # Constants
-NS = 86400 * np.arange(1, 61)  # 1d, 2d, 3d, ...., 31
-TS = 3600 * 12 * np.arange(1, 121)  # 12h, 24h, 36h, ...., 60d
+NS = 86400 * np.arange(1, 181)  # 1d, 2d, 3d, ...., 31
+TS = 3600 * 12 * np.arange(1, 361)  # 12h, 24h, 36h, ...., 60d
 
 def fit_levy_stable(log_returns):
     return levy_stable.fit(log_returns)
@@ -50,8 +50,8 @@ def main(data_file, alpha_level):
         alpha, beta, mu, sigma = fit_levy_stable(log_returns)
         print(f"Fitted params: alpha: {alpha}, beta: {beta}, mu: {mu}, sigma: {sigma}")
 
-        alpha, beta, mu, sigma = rescale_params(alpha, beta, mu, sigma, 1/86400)
-        print(f"Rescaled params: alpha: {alpha}, beta: {beta}, mu: {mu}, sigma: {sigma}")
+        #alpha, beta, mu, sigma = rescale_params(alpha, beta, mu, sigma, 1/86400)
+        #print(f"Rescaled params: alpha: {alpha}, beta: {beta}, mu: {mu}, sigma: {sigma}")
 
         df_ks = calibrate_k(alpha, beta, mu, sigma, NS, alpha_level)
         print('Calibrated Funding Constants (k):')
@@ -67,3 +67,6 @@ def main(data_file, alpha_level):
         print(f"CSV file not found: {csv_filename}")
     except ValueError as e:
         print(f"Error: {e}")
+
+if __name__ == __name__:
+    main(r'C:\Users\HP\Desktop\overlay\overlay-risk\ethsol.csv', 0.01)

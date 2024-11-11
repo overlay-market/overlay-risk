@@ -106,3 +106,23 @@ def analyze_data(csv_file_path, t, cp, st, alpha_level):
         print(f"CSV file not found: {csv_file_path}")
     except ValueError as e:
         print(f"Error: {e}")
+
+def main():
+    # Parameters for the analysis
+    csv_file_path = r'C:\Users\HP\Desktop\overlay\overlay-risk\ethsol.csv'  # Replace with your actual CSV file path
+    t = 86400  # Time factor (Daily data)
+    cp = 5  # Cap
+    st = 600  # Shorter Twap
+    alpha_level = 0.05  # Confidence level
+
+    # Run the analysis
+    df_deltas, df_ls = analyze_data(csv_file_path, t, cp, st, alpha_level)
+
+    # Display the results
+    print("Delta Results:")
+    print(df_deltas)
+    print("\nLambda Results:")
+    print(df_ls)
+
+if __name__ == "__main__":
+    main()
