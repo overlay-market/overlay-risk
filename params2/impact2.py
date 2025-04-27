@@ -109,11 +109,11 @@ def analyze_data(csv_file_path, t, cp, st, alpha_level):
 
 def main():
     # Parameters for the analysis
-    csv_file_path = r'C:\Users\HP\Desktop\overlay\overlay-risk\ethsol.csv'  # Replace with your actual CSV file path
+    csv_file_path = r'C:\Users\HP\market_results_5min.csv' 
     t = 86400  # Time factor (Daily data)
     cp = 5  # Cap
-    st = 600  # Shorter Twap
-    alpha_level = 0.05  # Confidence level
+    st = 180  # heartbeat interval in the feed
+    alpha_level = 0.01  # Confidence level
 
     # Run the analysis
     df_deltas, df_ls = analyze_data(csv_file_path, t, cp, st, alpha_level)
