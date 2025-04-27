@@ -50,7 +50,7 @@ def main(data_file, alpha_level):
         alpha, beta, mu, sigma = fit_levy_stable(log_returns)
         print(f"Fitted params: alpha: {alpha}, beta: {beta}, mu: {mu}, sigma: {sigma}")
 
-        #alpha, beta, mu, sigma = rescale_params(alpha, beta, mu, sigma, 1/86400)
+        #alpha, beta, mu, sigma = rescale_params(alpha, beta, mu, sigma, 1/86400) #No rescalling cause funding rate is a daily param
         #print(f"Rescaled params: alpha: {alpha}, beta: {beta}, mu: {mu}, sigma: {sigma}")
 
         df_ks = calibrate_k(alpha, beta, mu, sigma, NS, alpha_level)
@@ -69,4 +69,4 @@ def main(data_file, alpha_level):
         print(f"Error: {e}")
 
 if __name__ == __name__:
-    main(r'C:\Users\HP\Desktop\overlay\overlay-risk\ethsol.csv', 0.01)
+    main(r'C:\Users\HP\market_results_5min.csv', 0.01)
